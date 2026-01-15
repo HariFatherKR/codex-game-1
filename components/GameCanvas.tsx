@@ -6,6 +6,7 @@ import {
   COIN_MIN_GAP,
   GAME_HEIGHT,
   GAME_WIDTH,
+  MIN_OBSTACLE_DISTANCE,
   OBSTACLE_MAX_GAP,
   OBSTACLE_MIN_GAP
 } from '@/lib/game/constants';
@@ -29,6 +30,376 @@ import { readHighScore, writeHighScore } from '@/lib/game/storage';
 
 const randomRange = (min: number, max: number): number => min + Math.random() * (max - min);
 
+const TILE_SIZE = 16;
+
+const PALETTE = {
+  night: '#0a0f1f',
+  wall: '#121c33',
+  wallGlow: '#1d2a4d',
+  neonPink: '#ff4d8d',
+  neonBlue: '#4cc9f0',
+  neonPurple: '#7b2cbf',
+  floor: '#1a1f2e',
+  floorTile: '#252b3d',
+  outline: '#0b0b12',
+  skin: '#f6c7a7',
+  hair: '#3c2a21',
+  shirt: '#36c36f',
+  pants: '#3a5cff',
+  shoes: '#f9c74f',
+  cookie: '#4f2a1d',
+  cookieDark: '#3b1c14',
+  pistachio: '#6bcf6a',
+  shine: '#fef9c3'
+};
+
+const PLAYER_RUN_FRAMES: string[][] = [
+  [
+    '....OOOOOOOO....',
+    '...OHHHHHHHHO...',
+    '..OHSSSSSSSSHO..',
+    '..OHSSSSSSSSHO..',
+    '..OHHHHHHHHHHO..',
+    '..OOOOOOOOOOOO..',
+    '..OCCCCCCCCCCO..',
+    '..OCCCCCCCCCCO..',
+    '..OCCCCCCCCCCO..',
+    '..OCCCCCCCCCCO..',
+    '..OCC..CC..CCO..',
+    '..OCC..CC..CCO..',
+    '..O..BB..BB..O..',
+    '.OO.BB....BB.OO.',
+    '.O..BB....BB..O.',
+    '....OO....OO....'
+  ],
+  [
+    '....OOOOOOOO....',
+    '...OHHHHHHHHO...',
+    '..OHSSSSSSSSHO..',
+    '..OHSSSSSSSSHO..',
+    '..OHHHHHHHHHHO..',
+    '..OOOOOOOOOOOO..',
+    '..OCCCCCCCCCCO..',
+    '..OCCCCCCCCCCO..',
+    '..OCCCCCCCCCCO..',
+    '..OCCCCCCCCCCO..',
+    '..OCC..CC..CCO..',
+    '..OCC..CC..CCO..',
+    '..O..BB..BB..O..',
+    '.OO..BBOOBB..OO.',
+    '.O....BB....OO..',
+    '.....OO..OO.....'
+  ],
+  [
+    '....OOOOOOOO....',
+    '...OHHHHHHHHO...',
+    '..OHSSSSSSSSHO..',
+    '..OHSSSSSSSSHO..',
+    '..OHHHHHHHHHHO..',
+    '..OOOOOOOOOOOO..',
+    '..OCCCCCCCCCCO..',
+    '..OCCCCCCCCCCO..',
+    '..OCCCCCCCCCCO..',
+    '..OCCCCCCCCCCO..',
+    '..OCC..CC..CCO..',
+    '..OCC..CC..CCO..',
+    '..O..BB..BB..O..',
+    '.OO.BB....BB.OO.',
+    '.O..BB....BB..O.',
+    '....OO....OO....'
+  ],
+  [
+    '....OOOOOOOO....',
+    '...OHHHHHHHHO...',
+    '..OHSSSSSSSSHO..',
+    '..OHSSSSSSSSHO..',
+    '..OHHHHHHHHHHO..',
+    '..OOOOOOOOOOOO..',
+    '..OCCCCCCCCCCO..',
+    '..OCCCCCCCCCCO..',
+    '..OCCCCCCCCCCO..',
+    '..OCCCCCCCCCCO..',
+    '..OCC..CC..CCO..',
+    '..OCC..CC..CCO..',
+    '..O..BB..BB..O..',
+    '.OO..BBOOBB..OO.',
+    '.O....BB....OO..',
+    '.....OO..OO.....'
+  ]
+];
+
+const PLAYER_JUMP_FRAME = [
+  '....OOOOOOOO....',
+  '...OHHHHHHHHO...',
+  '..OHSSSSSSSSHO..',
+  '..OHSSSSSSSSHO..',
+  '..OHHHHHHHHHHO..',
+  '..OOOOOOOOOOOO..',
+  '..OCCCCCCCCCCO..',
+  '..OCCCCCCCCCCO..',
+  '..OCCCCCCCCCCO..',
+  '..OCCCCCCCCCCO..',
+  '..OCC..CC..CCO..',
+  '..OCC..CC..CCO..',
+  '..O..BBBBBBBBO..',
+  '..OO..BB..OO....',
+  '....BB..BB......',
+  '....OO..OO......'
+];
+
+const PLAYER_HIT_FRAME = [
+  '....OOOOOOOO....',
+  '...OHHHHHHHHO...',
+  '..OHSSSSSSSSHO..',
+  '..OHSSSSSSSSHO..',
+  '..OHHHHHHHHHHO..',
+  '..OOOOOOOOOOOO..',
+  '..OCCCCCCCCCCO..',
+  '..OCCCCCCCCCCO..',
+  '..OCCCCCCCCCCO..',
+  '..OCCCCCCCCCCO..',
+  '..OCC..CC..CCO..',
+  '..OCC..CC..CCO..',
+  '..O..BB..BB..O..',
+  '.OO.BB..BB..OO..',
+  '.O..BB....BB..O.',
+  '....OO....OO....'
+];
+
+const COOKIE_FRAMES = [
+  [
+    '.....OOOOO......',
+    '...OOOOOOOOO....',
+    '..OOCCCCCCOOO...',
+    '.OOCCPPPPCCOO...',
+    '.OCCPPPPPPCCO...',
+    '.OCPPSSSSPPCO...',
+    '.OCPSSSSSPPCO...',
+    '.OCPSSSSSPPCO...',
+    '.OCPSSSSSPPCO...',
+    '.OCPPSSSSPPCO...',
+    '.OCCPPPPPPCCO...',
+    '.OOCCPPPPCCOO...',
+    '..OOCCCCCCOO....',
+    '...OOOOOOOOO....',
+    '.....OOOOO......',
+    '................'
+  ],
+  [
+    '.....OOOOO......',
+    '...OOOOOOOOO....',
+    '..OOCCCCCCOOO...',
+    '.OOCCPPPPCCOO...',
+    '.OCCPPPPPPCCO...',
+    '.OCPPSSSSPPCO...',
+    '.OCPSSSSSPPCO...',
+    '.OCPSSSSSPPCO...',
+    '.OCPSSSSSPPCO...',
+    '.OCPPSSSSPPCO...',
+    '.OCCPPPPPPCCO...',
+    '.OOCCPPPPCCOO...',
+    '..OOCCCCCCOO....',
+    '...OOOOOOOOO....',
+    '.....OOO.O......',
+    '................'
+  ]
+];
+
+const OBSTACLE_COLORS = {
+  bicycle: { body: '#f7b801', detail: '#fce7a8', wheel: '#2b2d42' },
+  car: { body: '#ef476f', detail: '#ffd166', wheel: '#2b2d42' },
+  scooter: { body: '#4cc9f0', detail: '#bde0fe', wheel: '#2b2d42' }
+};
+
+const getObstacleColor = (type: Obstacle['type']) => {
+  if (type === 'CAR') {
+    return OBSTACLE_COLORS.car;
+  }
+  if (type === 'SCOOTER') {
+    return OBSTACLE_COLORS.scooter;
+  }
+  return OBSTACLE_COLORS.bicycle;
+};
+
+const pickObstacleType = (lastType: Obstacle['type'] | null): Obstacle['type'] => {
+  const choices: Array<{ type: Obstacle['type']; weight: number }> = [
+    { type: 'BICYCLE', weight: 0.4 },
+    { type: 'CAR', weight: 0.25 },
+    { type: 'SCOOTER', weight: 0.35 }
+  ];
+
+  const filtered = lastType === 'CAR' ? choices.filter((choice) => choice.type !== 'CAR') : choices;
+  const totalWeight = filtered.reduce((sum, choice) => sum + choice.weight, 0);
+  let roll = Math.random() * totalWeight;
+  for (const choice of filtered) {
+    roll -= choice.weight;
+    if (roll <= 0) {
+      return choice.type;
+    }
+  }
+  return filtered[0].type;
+};
+
+const drawSprite = (
+  context: CanvasRenderingContext2D,
+  sprite: string[],
+  x: number,
+  y: number,
+  pixelSize: number,
+  paletteMap: Record<string, string>
+) => {
+  sprite.forEach((row, rowIndex) => {
+    row.split('').forEach((pixel, colIndex) => {
+      const color = paletteMap[pixel];
+      if (!color) {
+        return;
+      }
+      context.fillStyle = color;
+      context.fillRect(x + colIndex * pixelSize, y + rowIndex * pixelSize, pixelSize, pixelSize);
+    });
+  });
+};
+
+const drawBackground = (
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  groundY: number,
+  midOffset: number,
+  farOffset: number
+) => {
+  context.fillStyle = PALETTE.night;
+  context.fillRect(0, 0, width, height);
+
+  context.fillStyle = PALETTE.wall;
+  context.fillRect(0, 0, width, groundY);
+
+  const farSpeed = 0.35;
+  const midSpeed = 0.6;
+
+  for (let x = -TILE_SIZE; x < width + TILE_SIZE; x += TILE_SIZE * 2) {
+    const offsetX = (x + farOffset * farSpeed) % (TILE_SIZE * 4);
+    context.fillStyle = PALETTE.neonPurple;
+    context.fillRect(offsetX, 40, TILE_SIZE, 6);
+    context.fillStyle = PALETTE.neonBlue;
+    context.fillRect(offsetX + TILE_SIZE, 70, TILE_SIZE, 6);
+  }
+
+  for (let x = -TILE_SIZE; x < width + TILE_SIZE; x += TILE_SIZE * 3) {
+    const offsetX = (x + midOffset * midSpeed) % (TILE_SIZE * 6);
+    context.fillStyle = PALETTE.wallGlow;
+    context.fillRect(offsetX, groundY - 160, TILE_SIZE * 2, 40);
+    context.fillStyle = PALETTE.neonPink;
+    context.fillRect(offsetX + 8, groundY - 150, TILE_SIZE, 8);
+  }
+
+  context.strokeStyle = '#0e1730';
+  context.lineWidth = 1;
+  for (let y = 0; y < groundY; y += 8) {
+    context.beginPath();
+    context.moveTo(0, y + 0.5);
+    context.lineTo(width, y + 0.5);
+    context.stroke();
+  }
+};
+
+const drawFloor = (context: CanvasRenderingContext2D, width: number, height: number, groundY: number) => {
+  context.fillStyle = PALETTE.floor;
+  context.fillRect(0, groundY, width, height - groundY);
+
+  for (let x = 0; x < width; x += TILE_SIZE) {
+    for (let y = groundY; y < height; y += TILE_SIZE) {
+      context.fillStyle = (Math.floor(x / TILE_SIZE) + Math.floor(y / TILE_SIZE)) % 2 === 0
+        ? PALETTE.floorTile
+        : PALETTE.floor;
+      context.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    }
+  }
+
+  context.strokeStyle = PALETTE.neonBlue;
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(0, groundY + 2);
+  context.lineTo(width, groundY + 2);
+  context.stroke();
+};
+
+const drawPlayerSprite = (
+  context: CanvasRenderingContext2D,
+  player: Player,
+  frameIndex: number,
+  status: GameStatus
+) => {
+  const pixelSize = 3;
+  const sprite = status === 'GAME_OVER'
+    ? PLAYER_HIT_FRAME
+    : player.isGrounded
+      ? PLAYER_RUN_FRAMES[frameIndex % PLAYER_RUN_FRAMES.length]
+      : PLAYER_JUMP_FRAME;
+
+  const paletteMap = {
+    O: PALETTE.outline,
+    H: PALETTE.hair,
+    S: PALETTE.skin,
+    C: PALETTE.shirt,
+    B: PALETTE.shoes,
+    P: PALETTE.pants
+  };
+
+  drawSprite(context, sprite, player.x, player.y, pixelSize, paletteMap);
+};
+
+const drawCookie = (context: CanvasRenderingContext2D, coin: Coin, frameIndex: number) => {
+  const pixelSize = 1;
+  const sprite = COOKIE_FRAMES[frameIndex % COOKIE_FRAMES.length];
+  const size = sprite.length * pixelSize;
+  const x = coin.x - size / 2;
+  const y = coin.y - size / 2;
+
+  const paletteMap = {
+    O: PALETTE.outline,
+    C: PALETTE.cookie,
+    P: PALETTE.cookieDark,
+    S: PALETTE.pistachio,
+    '.': '',
+    H: PALETTE.shine
+  };
+
+  drawSprite(context, sprite, x, y, pixelSize, paletteMap);
+};
+
+const drawObstacle = (context: CanvasRenderingContext2D, obstacle: Obstacle) => {
+  const colors = getObstacleColor(obstacle.type);
+  const x = obstacle.x;
+  const y = obstacle.y;
+
+  context.fillStyle = PALETTE.outline;
+  context.fillRect(x - 2, y - 2, obstacle.width + 4, obstacle.height + 4);
+
+  context.fillStyle = colors.body;
+  context.fillRect(x, y, obstacle.width, obstacle.height);
+
+  context.fillStyle = colors.detail;
+  if (obstacle.type === 'CAR') {
+    context.fillRect(x + 6, y + 4, obstacle.width - 12, 8);
+    context.fillRect(x + 10, y + 12, obstacle.width - 20, 6);
+    context.fillStyle = colors.wheel;
+    context.fillRect(x + 6, y + obstacle.height - 6, 10, 6);
+    context.fillRect(x + obstacle.width - 16, y + obstacle.height - 6, 10, 6);
+  } else if (obstacle.type === 'SCOOTER') {
+    context.fillRect(x + 4, y + 6, obstacle.width - 8, 6);
+    context.fillRect(x + obstacle.width - 8, y, 4, obstacle.height - 6);
+    context.fillStyle = colors.wheel;
+    context.fillRect(x + 2, y + obstacle.height - 6, 6, 6);
+    context.fillRect(x + obstacle.width - 8, y + obstacle.height - 6, 6, 6);
+  } else {
+    context.fillRect(x + 6, y + 8, obstacle.width - 12, 6);
+    context.fillStyle = colors.wheel;
+    context.fillRect(x + 4, y + obstacle.height - 6, 8, 6);
+    context.fillRect(x + obstacle.width - 12, y + obstacle.height - 6, 8, 6);
+  }
+};
+
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRef = useRef<number | null>(null);
@@ -42,6 +413,9 @@ export default function GameCanvas() {
   const coinTimerRef = useRef<number>(randomRange(COIN_MIN_GAP, COIN_MAX_GAP));
   const obstacleTimerRef = useRef<number>(randomRange(OBSTACLE_MIN_GAP, OBSTACLE_MAX_GAP));
   const hudTimerRef = useRef<number>(0);
+  const animationRef = useRef<number>(0);
+  const lastObstacleTypeRef = useRef<Obstacle['type'] | null>(null);
+  const backgroundOffsetRef = useRef<{ mid: number; far: number }>({ mid: 0, far: 0 });
 
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
@@ -57,6 +431,8 @@ export default function GameCanvas() {
     scoreRef.current = 0;
     coinTimerRef.current = randomRange(COIN_MIN_GAP, COIN_MAX_GAP);
     obstacleTimerRef.current = randomRange(OBSTACLE_MIN_GAP, OBSTACLE_MAX_GAP);
+    lastObstacleTypeRef.current = null;
+    backgroundOffsetRef.current = { mid: 0, far: 0 };
     setScore(0);
     setSpeedDisplay(Math.round(speedRef.current));
   };
@@ -172,10 +548,20 @@ export default function GameCanvas() {
           coinTimerRef.current = randomRange(COIN_MIN_GAP, COIN_MAX_GAP);
         }
         if (obstacleTimerRef.current <= 0) {
-          obstaclesRef.current.push(createObstacle(canvas.width, groundY));
-          const minGap = Math.max(0.9, OBSTACLE_MIN_GAP - speedRef.current * 0.02);
-          const maxGap = Math.max(1.4, OBSTACLE_MAX_GAP - speedRef.current * 0.02);
-          obstacleTimerRef.current = randomRange(minGap, maxGap);
+          const lastObstacle = obstaclesRef.current[obstaclesRef.current.length - 1];
+          if (
+            lastObstacle &&
+            canvas.width + 60 - (lastObstacle.x + lastObstacle.width) < MIN_OBSTACLE_DISTANCE
+          ) {
+            obstacleTimerRef.current = 0.15;
+          } else {
+            const nextType = pickObstacleType(lastObstacleTypeRef.current);
+            obstaclesRef.current.push(createObstacle(canvas.width, groundY, nextType));
+            lastObstacleTypeRef.current = nextType;
+            const minGap = Math.max(0.9, OBSTACLE_MIN_GAP - speedRef.current * 0.02);
+            const maxGap = Math.max(1.4, OBSTACLE_MAX_GAP - speedRef.current * 0.02);
+            obstacleTimerRef.current = randomRange(minGap, maxGap);
+          }
         }
 
         moveObjects(coinsRef.current, speedRef.current, delta);
@@ -206,47 +592,40 @@ export default function GameCanvas() {
         });
       }
 
+      backgroundOffsetRef.current = {
+        mid: backgroundOffsetRef.current.mid - speedRef.current * 1.2,
+        far: backgroundOffsetRef.current.far - speedRef.current * 0.6
+      };
+      animationRef.current += delta;
+
       const render = () => {
-        context.clearRect(0, 0, canvas.width, canvas.height);
         const groundY = getGroundY(canvas.height);
-
-        context.fillStyle = '#0d1b2a';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-
-        context.fillStyle = '#1b263b';
-        context.fillRect(0, groundY, canvas.width, canvas.height - groundY);
-
-        context.strokeStyle = '#415a77';
-        context.lineWidth = 4;
-        context.beginPath();
-        context.moveTo(0, groundY + 2);
-        context.lineTo(canvas.width, groundY + 2);
-        context.stroke();
+        drawBackground(
+          context,
+          canvas.width,
+          canvas.height,
+          groundY,
+          backgroundOffsetRef.current.mid,
+          backgroundOffsetRef.current.far
+        );
+        drawFloor(context, canvas.width, canvas.height, groundY);
 
         const player = playerRef.current;
         if (player) {
-          context.fillStyle = '#f0f6ff';
-          context.fillRect(player.x, player.y, player.width, player.height);
-          context.fillStyle = '#3a86ff';
-          context.fillRect(player.x + 6, player.y + 10, player.width - 12, player.height - 20);
+          const frameIndex = Math.floor(animationRef.current * 8) % PLAYER_RUN_FRAMES.length;
+          drawPlayerSprite(context, player, frameIndex, statusRef.current);
         }
 
+        const coinFrame = Math.floor(animationRef.current * 6) % COOKIE_FRAMES.length;
         coinsRef.current.forEach((coin) => {
           if (coin.collected) {
             return;
           }
-          context.beginPath();
-          context.fillStyle = '#ffd60a';
-          context.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
-          context.fill();
-          context.strokeStyle = '#ffb703';
-          context.lineWidth = 3;
-          context.stroke();
+          drawCookie(context, coin, coinFrame);
         });
 
         obstaclesRef.current.forEach((obstacle) => {
-          context.fillStyle = obstacle.type === 'HIGH' ? '#ef476f' : '#ffd166';
-          context.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+          drawObstacle(context, obstacle);
         });
 
         if (statusRef.current === 'READY') {
@@ -328,6 +707,7 @@ export default function GameCanvas() {
             <button type="button" onClick={startGame}>
               Start
             </button>
+            <span className="hint">Collect the Dubai chewy cookie coins!</span>
           </div>
         </div>
       ) : null}
@@ -340,11 +720,11 @@ const drawOverlay = (
   canvas: HTMLCanvasElement,
   context: CanvasRenderingContext2D
 ) => {
-  context.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  context.fillStyle = 'rgba(5, 8, 15, 0.6)';
   context.fillRect(0, 0, canvas.width, canvas.height);
 
   context.fillStyle = '#f8f9fa';
-  context.font = '700 32px "Inter", system-ui, sans-serif';
+  context.font = '700 28px "Press Start 2P", system-ui, sans-serif';
   context.textAlign = 'center';
   context.fillText(message, canvas.width / 2, canvas.height / 2);
 };

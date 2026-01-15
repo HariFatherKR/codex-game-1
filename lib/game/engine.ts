@@ -4,9 +4,8 @@ import {
   COIN_SCORE,
   GROUND_HEIGHT,
   GRAVITY,
-  HIGH_OBSTACLE,
   JUMP_FORCE,
-  LOW_OBSTACLE,
+  OBSTACLES,
   MAX_SPEED,
   PLAYER_HEIGHT,
   PLAYER_WIDTH,
@@ -63,23 +62,28 @@ export const createCoin = (canvasWidth: number, groundY: number): Coin => {
   };
 };
 
-export const createObstacle = (canvasWidth: number, groundY: number): Obstacle => {
-  const isHigh = Math.random() > 0.55;
-  const obstacle = isHigh ? HIGH_OBSTACLE : LOW_OBSTACLE;
+export const createObstacle = (
+  canvasWidth: number,
+  groundY: number,
+  type: Obstacle['type'] = 'BICYCLE'
+): Obstacle => {
+  const obstacle = OBSTACLES[type];
   return {
     id: objectId++,
     x: canvasWidth + 60,
     y: groundY - obstacle.height,
     width: obstacle.width,
     height: obstacle.height,
-    type: isHigh ? 'HIGH' : 'LOW'
+    type,
+    speedBoost: obstacle.speedBoost
   };
 };
 
 export const moveObjects = (objects: Array<Coin | Obstacle>, speed: number, deltaSeconds: number): void => {
   const distance = speed * 60 * deltaSeconds;
   objects.forEach((obj) => {
-    obj.x -= distance;
+    const boost = 'speedBoost' in obj ? obj.speedBoost : 0;
+    obj.x -= distance * (1 + boost);
   });
 };
 
