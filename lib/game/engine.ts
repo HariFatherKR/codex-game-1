@@ -1,15 +1,16 @@
 import {
   BASE_SPEED,
-  COIN_RADIUS,
+  COIN_SIZE,
   COIN_SCORE,
+  BIKE_OBSTACLE,
+  CAR_OBSTACLE,
   GROUND_HEIGHT,
   GRAVITY,
-  HIGH_OBSTACLE,
   JUMP_FORCE,
-  LOW_OBSTACLE,
   MAX_SPEED,
   PLAYER_HEIGHT,
   PLAYER_WIDTH,
+  SCOOTER_OBSTACLE,
   PLAYER_X,
   SPEED_RAMP
 } from './constants';
@@ -58,21 +59,52 @@ export const createCoin = (canvasWidth: number, groundY: number): Coin => {
     id: objectId++,
     x: canvasWidth + 40,
     y: groundY - lift,
-    radius: COIN_RADIUS,
+    size: COIN_SIZE,
+    shimmerOffset: Math.random() * 2 * Math.PI,
     collected: false
   };
 };
 
-export const createObstacle = (canvasWidth: number, groundY: number): Obstacle => {
-  const isHigh = Math.random() > 0.55;
-  const obstacle = isHigh ? HIGH_OBSTACLE : LOW_OBSTACLE;
+export const createObstacle = (
+  canvasWidth: number,
+  groundY: number,
+  lastType: Obstacle['type'] | null
+): Obstacle => {
+  const options: Array<{ type: Obstacle['type']; weight: number }> = [
+    { type: 'BIKE', weight: 0.38 },
+    { type: 'CAR', weight: 0.34 },
+    { type: 'SCOOTER', weight: 0.28 }
+  ];
+
+  const filtered =
+    lastType === 'CAR' ? options.filter((option) => option.type !== 'CAR') : options;
+
+  const totalWeight = filtered.reduce((sum, option) => sum + option.weight, 0);
+  const roll = Math.random() * totalWeight;
+  let accumulator = 0;
+  let selection = filtered[0]?.type ?? 'BIKE';
+  for (const option of filtered) {
+    accumulator += option.weight;
+    if (roll <= accumulator) {
+      selection = option.type;
+      break;
+    }
+  }
+
+  const obstacleLookup = {
+    BIKE: BIKE_OBSTACLE,
+    CAR: CAR_OBSTACLE,
+    SCOOTER: SCOOTER_OBSTACLE
+  } as const;
+  const obstacle = obstacleLookup[selection];
+
   return {
     id: objectId++,
     x: canvasWidth + 60,
     y: groundY - obstacle.height,
     width: obstacle.width,
     height: obstacle.height,
-    type: isHigh ? 'HIGH' : 'LOW'
+    type: selection
   };
 };
 
@@ -86,7 +118,7 @@ export const moveObjects = (objects: Array<Coin | Obstacle>, speed: number, delt
 export const removeOffscreen = <T extends Coin | Obstacle>(
   objects: T[],
   limit: number
-): T[] => objects.filter((obj) => obj.x + ('width' in obj ? obj.width : obj.radius * 2) > limit);
+): T[] => objects.filter((obj) => obj.x + ('width' in obj ? obj.width : obj.size) > limit);
 
 export const checkRectCollision = (
   a: { x: number; y: number; width: number; height: number },
@@ -99,10 +131,10 @@ export const checkRectCollision = (
 
 export const checkCoinCollision = (player: Player, coin: Coin): boolean => {
   const coinBox = {
-    x: coin.x - coin.radius,
-    y: coin.y - coin.radius,
-    width: coin.radius * 2,
-    height: coin.radius * 2
+    x: coin.x,
+    y: coin.y,
+    width: coin.size,
+    height: coin.size
   };
 
   return checkRectCollision(player, coinBox);
