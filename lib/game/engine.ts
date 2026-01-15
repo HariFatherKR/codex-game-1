@@ -1,13 +1,12 @@
 import {
   BASE_SPEED,
-  COIN_RADIUS,
   COIN_SCORE,
+  COIN_SIZE,
   GROUND_HEIGHT,
   GRAVITY,
-  HIGH_OBSTACLE,
   JUMP_FORCE,
-  LOW_OBSTACLE,
   MAX_SPEED,
+  OBSTACLES,
   PLAYER_HEIGHT,
   PLAYER_WIDTH,
   PLAYER_X,
@@ -53,26 +52,33 @@ export const increaseSpeed = (speed: number, deltaSeconds: number): number => {
 };
 
 export const createCoin = (canvasWidth: number, groundY: number): Coin => {
-  const lift = Math.random() > 0.5 ? 110 : 60;
+  const lift = Math.random() > 0.5 ? 120 : 72;
   return {
     id: objectId++,
     x: canvasWidth + 40,
-    y: groundY - lift,
-    radius: COIN_RADIUS,
+    y: groundY - lift - COIN_SIZE,
+    size: COIN_SIZE,
     collected: false
   };
 };
 
-export const createObstacle = (canvasWidth: number, groundY: number): Obstacle => {
-  const isHigh = Math.random() > 0.55;
-  const obstacle = isHigh ? HIGH_OBSTACLE : LOW_OBSTACLE;
+export const createObstacle = (
+  canvasWidth: number,
+  groundY: number,
+  previousType?: Obstacle['type']
+): Obstacle => {
+  const types: Obstacle['type'][] = ['BICYCLE', 'CAR', 'SCOOTER'];
+  const availableTypes =
+    previousType === 'CAR' ? types.filter((type) => type !== 'CAR') : types;
+  const type = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+  const obstacle = OBSTACLES[type];
   return {
     id: objectId++,
     x: canvasWidth + 60,
     y: groundY - obstacle.height,
     width: obstacle.width,
     height: obstacle.height,
-    type: isHigh ? 'HIGH' : 'LOW'
+    type
   };
 };
 
@@ -86,7 +92,8 @@ export const moveObjects = (objects: Array<Coin | Obstacle>, speed: number, delt
 export const removeOffscreen = <T extends Coin | Obstacle>(
   objects: T[],
   limit: number
-): T[] => objects.filter((obj) => obj.x + ('width' in obj ? obj.width : obj.radius * 2) > limit);
+): T[] =>
+  objects.filter((obj) => obj.x + ('width' in obj ? obj.width : obj.size) > limit);
 
 export const checkRectCollision = (
   a: { x: number; y: number; width: number; height: number },
@@ -98,14 +105,12 @@ export const checkRectCollision = (
   a.y + a.height > b.y;
 
 export const checkCoinCollision = (player: Player, coin: Coin): boolean => {
-  const coinBox = {
-    x: coin.x - coin.radius,
-    y: coin.y - coin.radius,
-    width: coin.radius * 2,
-    height: coin.radius * 2
-  };
-
-  return checkRectCollision(player, coinBox);
+  return checkRectCollision(player, {
+    x: coin.x,
+    y: coin.y,
+    width: coin.size,
+    height: coin.size
+  });
 };
 
 export const getSnapshot = (score: number, speed: number, status: GameSnapshot['status']): GameSnapshot => ({

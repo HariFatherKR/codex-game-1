@@ -13,7 +13,7 @@ export type Coin = {
   id: number;
   x: number;
   y: number;
-  radius: number;
+  size: number;
   collected: boolean;
 };
 
@@ -23,7 +23,7 @@ export type Obstacle = {
   y: number;
   width: number;
   height: number;
-  type: 'LOW' | 'HIGH';
+  type: 'BICYCLE' | 'CAR' | 'SCOOTER';
 };
 
 export type GameSnapshot = {

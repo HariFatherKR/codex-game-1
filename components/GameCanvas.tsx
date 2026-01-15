@@ -42,6 +42,7 @@ export default function GameCanvas() {
   const coinTimerRef = useRef<number>(randomRange(COIN_MIN_GAP, COIN_MAX_GAP));
   const obstacleTimerRef = useRef<number>(randomRange(OBSTACLE_MIN_GAP, OBSTACLE_MAX_GAP));
   const hudTimerRef = useRef<number>(0);
+  const lastObstacleTypeRef = useRef<Obstacle['type'] | null>(null);
 
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
@@ -57,6 +58,7 @@ export default function GameCanvas() {
     scoreRef.current = 0;
     coinTimerRef.current = randomRange(COIN_MIN_GAP, COIN_MAX_GAP);
     obstacleTimerRef.current = randomRange(OBSTACLE_MIN_GAP, OBSTACLE_MAX_GAP);
+    lastObstacleTypeRef.current = null;
     setScore(0);
     setSpeedDisplay(Math.round(speedRef.current));
   };
@@ -172,7 +174,13 @@ export default function GameCanvas() {
           coinTimerRef.current = randomRange(COIN_MIN_GAP, COIN_MAX_GAP);
         }
         if (obstacleTimerRef.current <= 0) {
-          obstaclesRef.current.push(createObstacle(canvas.width, groundY));
+          const obstacle = createObstacle(
+            canvas.width,
+            groundY,
+            lastObstacleTypeRef.current ?? undefined
+          );
+          obstaclesRef.current.push(obstacle);
+          lastObstacleTypeRef.current = obstacle.type;
           const minGap = Math.max(0.9, OBSTACLE_MIN_GAP - speedRef.current * 0.02);
           const maxGap = Math.max(1.4, OBSTACLE_MAX_GAP - speedRef.current * 0.02);
           obstacleTimerRef.current = randomRange(minGap, maxGap);
@@ -210,43 +218,32 @@ export default function GameCanvas() {
         context.clearRect(0, 0, canvas.width, canvas.height);
         const groundY = getGroundY(canvas.height);
 
-        context.fillStyle = '#0d1b2a';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-
-        context.fillStyle = '#1b263b';
-        context.fillRect(0, groundY, canvas.width, canvas.height - groundY);
-
-        context.strokeStyle = '#415a77';
-        context.lineWidth = 4;
-        context.beginPath();
-        context.moveTo(0, groundY + 2);
-        context.lineTo(canvas.width, groundY + 2);
-        context.stroke();
+        context.imageSmoothingEnabled = false;
+        drawBackground(context, canvas.width, canvas.height);
+        drawGround(context, groundY, canvas.width, canvas.height);
 
         const player = playerRef.current;
         if (player) {
-          context.fillStyle = '#f0f6ff';
-          context.fillRect(player.x, player.y, player.width, player.height);
-          context.fillStyle = '#3a86ff';
-          context.fillRect(player.x + 6, player.y + 10, player.width - 12, player.height - 20);
+          const runFrame = Math.floor(timestamp / 120) % 4;
+          const pose =
+            statusRef.current === 'GAME_OVER'
+              ? 'HIT'
+              : player.isGrounded
+                ? 'RUN'
+                : 'JUMP';
+          drawPlayer(context, player, runFrame, pose);
         }
 
         coinsRef.current.forEach((coin) => {
           if (coin.collected) {
             return;
           }
-          context.beginPath();
-          context.fillStyle = '#ffd60a';
-          context.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
-          context.fill();
-          context.strokeStyle = '#ffb703';
-          context.lineWidth = 3;
-          context.stroke();
+          const sparkleFrame = Math.floor(timestamp / 260) % 2;
+          drawCoin(context, coin.x, coin.y, coin.size, sparkleFrame);
         });
 
         obstaclesRef.current.forEach((obstacle) => {
-          context.fillStyle = obstacle.type === 'HIGH' ? '#ef476f' : '#ffd166';
-          context.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+          drawObstacle(context, obstacle);
         });
 
         if (statusRef.current === 'READY') {
@@ -335,6 +332,191 @@ export default function GameCanvas() {
   );
 }
 
+const drawPixelRect = (
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  color: string
+) => {
+  context.fillStyle = color;
+  context.fillRect(x, y, width, height);
+};
+
+const drawOutlinedBlock = (
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  fill: string,
+  outline: string
+) => {
+  drawPixelRect(context, x, y, width, height, outline);
+  if (width > 2 && height > 2) {
+    drawPixelRect(context, x + 1, y + 1, width - 2, height - 2, fill);
+  }
+};
+
+const drawBackground = (context: CanvasRenderingContext2D, width: number, height: number) => {
+  drawPixelRect(context, 0, 0, width, height, '#0a0f1f');
+
+  for (let x = 0; x < width; x += 64) {
+    drawPixelRect(context, x + 8, 24, 32, 8, 'rgba(76, 201, 240, 0.12)');
+    drawPixelRect(context, x + 20, 54, 22, 6, 'rgba(247, 37, 133, 0.12)');
+  }
+
+  for (let y = 0; y < height; y += 4) {
+    drawPixelRect(context, 0, y, width, 1, 'rgba(15, 23, 42, 0.2)');
+  }
+};
+
+const drawGround = (
+  context: CanvasRenderingContext2D,
+  groundY: number,
+  width: number,
+  height: number
+) => {
+  drawPixelRect(context, 0, groundY, width, height - groundY, '#1d2036');
+  const tile = 16;
+  for (let x = 0; x < width; x += tile) {
+    const color = x / tile % 2 === 0 ? '#2b2f4d' : '#252a44';
+    drawPixelRect(context, x, groundY, tile, tile, color);
+    drawPixelRect(context, x, groundY + tile, tile, tile, '#1b1f37');
+  }
+  drawPixelRect(context, 0, groundY, width, 4, '#6c63ff');
+};
+
+const drawPlayer = (
+  context: CanvasRenderingContext2D,
+  player: Player,
+  frame: number,
+  pose: 'RUN' | 'JUMP' | 'HIT'
+) => {
+  const unit = Math.floor(player.width / 16);
+  const baseX = player.x;
+  const baseY = player.y;
+  const outline = '#1b1f2a';
+  const skin = '#f7c59f';
+  const hair = '#3d2b1f';
+  const shirt = '#2ec4b6';
+  const pants = '#0f4c81';
+  const shoe = '#ff9f1c';
+
+  const rect = (x: number, y: number, w: number, h: number, color: string) => {
+    drawPixelRect(context, baseX + x * unit, baseY + y * unit, w * unit, h * unit, color);
+  };
+
+  const outlined = (x: number, y: number, w: number, h: number, color: string) => {
+    drawOutlinedBlock(
+      context,
+      baseX + x * unit,
+      baseY + y * unit,
+      w * unit,
+      h * unit,
+      color,
+      outline
+    );
+  };
+
+  outlined(3, 0, 10, 7, skin);
+  rect(3, 0, 10, 2, hair);
+  rect(4, 2, 2, 2, '#1b1f2a');
+  rect(9, 2, 2, 2, '#1b1f2a');
+  rect(6, 4, 4, 1, '#d96c7e');
+
+  outlined(4, 6, 8, 5, shirt);
+  rect(3, 7, 2, 2, shirt);
+  rect(11, 7, 2, 2, shirt);
+
+  outlined(5, 10, 6, 4, pants);
+
+  if (pose === 'HIT') {
+    rect(5, 14, 3, 2, shoe);
+    rect(8, 14, 3, 2, shoe);
+    rect(4, 12, 2, 1, '#f94144');
+    return;
+  }
+
+  if (pose === 'JUMP') {
+    rect(5, 14, 3, 2, shoe);
+    rect(8, 14, 3, 2, shoe);
+    rect(2, 9, 3, 1, '#ffd6a5');
+    rect(11, 9, 3, 1, '#ffd6a5');
+    return;
+  }
+
+  if (frame === 0) {
+    rect(4, 14, 4, 2, shoe);
+    rect(9, 14, 3, 2, shoe);
+  } else if (frame === 1) {
+    rect(5, 14, 3, 2, shoe);
+    rect(9, 13, 3, 2, shoe);
+  } else if (frame === 2) {
+    rect(4, 14, 3, 2, shoe);
+    rect(8, 14, 4, 2, shoe);
+  } else {
+    rect(5, 13, 3, 2, shoe);
+    rect(9, 14, 3, 2, shoe);
+  }
+  rect(2, 9, 3, 1, '#ffd6a5');
+  rect(11, 9, 3, 1, '#ffd6a5');
+};
+
+const drawCoin = (
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  frame: number
+) => {
+  const unit = Math.floor(size / 8);
+  const outline = '#2d1607';
+  const chocolate = '#6f3d1f';
+  const pistachio = '#7fd870';
+  const shine = frame === 0 ? '#fef9c3' : '#f4d06f';
+
+  drawOutlinedBlock(context, x, y, size, size, chocolate, outline);
+  drawPixelRect(context, x + unit * 2, y + unit * 2, unit * 2, unit * 2, pistachio);
+  drawPixelRect(context, x + unit * 4, y + unit * 4, unit * 2, unit * 2, pistachio);
+  drawPixelRect(context, x + unit * 5, y + unit * 2, unit * 2, unit, shine);
+  drawPixelRect(context, x + unit * 2, y + unit * 5, unit, unit, shine);
+};
+
+const drawObstacle = (context: CanvasRenderingContext2D, obstacle: Obstacle) => {
+  const unit = 2;
+  const baseX = obstacle.x;
+  const baseY = obstacle.y;
+  const outline = '#0b0f1f';
+
+  const block = (x: number, y: number, w: number, h: number, color: string) => {
+    drawPixelRect(context, baseX + x * unit, baseY + y * unit, w * unit, h * unit, color);
+  };
+
+  if (obstacle.type === 'BICYCLE') {
+    block(0, 8, 4, 4, '#2f2d2e');
+    block(12, 8, 4, 4, '#2f2d2e');
+    block(2, 6, 12, 2, '#43aa8b');
+    block(6, 4, 2, 4, '#577590');
+    block(8, 2, 4, 2, '#f9c74f');
+    block(1, 9, 2, 2, outline);
+    block(13, 9, 2, 2, outline);
+  } else if (obstacle.type === 'CAR') {
+    block(0, 6, 24, 6, '#f72585');
+    block(4, 2, 12, 4, '#4cc9f0');
+    block(4, 8, 4, 4, '#1b1f2a');
+    block(16, 8, 4, 4, '#1b1f2a');
+    block(2, 9, 2, 2, outline);
+    block(18, 9, 2, 2, outline);
+  } else {
+    block(0, 8, 6, 3, '#4361ee');
+    block(4, 3, 2, 5, '#b5179e');
+    block(8, 8, 4, 4, '#1b1f2a');
+    block(1, 9, 2, 2, outline);
+  }
+};
+
 const drawOverlay = (
   message: string,
   canvas: HTMLCanvasElement,
@@ -344,7 +526,7 @@ const drawOverlay = (
   context.fillRect(0, 0, canvas.width, canvas.height);
 
   context.fillStyle = '#f8f9fa';
-  context.font = '700 32px "Inter", system-ui, sans-serif';
+  context.font = '24px "Press Start 2P", system-ui, sans-serif';
   context.textAlign = 'center';
   context.fillText(message, canvas.width / 2, canvas.height / 2);
 };
