@@ -42,6 +42,9 @@ export default function GameCanvas() {
   const coinTimerRef = useRef<number>(randomRange(COIN_MIN_GAP, COIN_MAX_GAP));
   const obstacleTimerRef = useRef<number>(randomRange(OBSTACLE_MIN_GAP, OBSTACLE_MAX_GAP));
   const hudTimerRef = useRef<number>(0);
+  const lastObstacleTypeRef = useRef<Obstacle['type'] | null>(null);
+  const backgroundOffsetRef = useRef<number>(0);
+  const animationTimeRef = useRef<number>(0);
 
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
@@ -57,6 +60,9 @@ export default function GameCanvas() {
     scoreRef.current = 0;
     coinTimerRef.current = randomRange(COIN_MIN_GAP, COIN_MAX_GAP);
     obstacleTimerRef.current = randomRange(OBSTACLE_MIN_GAP, OBSTACLE_MAX_GAP);
+    lastObstacleTypeRef.current = null;
+    backgroundOffsetRef.current = 0;
+    animationTimeRef.current = 0;
     setScore(0);
     setSpeedDisplay(Math.round(speedRef.current));
   };
@@ -164,6 +170,8 @@ export default function GameCanvas() {
         updatePlayer(player, delta, groundY);
 
         speedRef.current = increaseSpeed(speedRef.current, delta);
+        animationTimeRef.current += delta;
+        backgroundOffsetRef.current += speedRef.current * delta * 24;
         coinTimerRef.current -= delta;
         obstacleTimerRef.current -= delta;
 
@@ -172,7 +180,17 @@ export default function GameCanvas() {
           coinTimerRef.current = randomRange(COIN_MIN_GAP, COIN_MAX_GAP);
         }
         if (obstacleTimerRef.current <= 0) {
-          obstaclesRef.current.push(createObstacle(canvas.width, groundY));
+          const lastObstacle = obstaclesRef.current[obstaclesRef.current.length - 1];
+          const minDistance = 180;
+          if (!lastObstacle || lastObstacle.x < canvas.width - minDistance) {
+            const nextObstacle = createObstacle(
+              canvas.width,
+              groundY,
+              lastObstacleTypeRef.current
+            );
+            obstaclesRef.current.push(nextObstacle);
+            lastObstacleTypeRef.current = nextObstacle.type;
+          }
           const minGap = Math.max(0.9, OBSTACLE_MIN_GAP - speedRef.current * 0.02);
           const maxGap = Math.max(1.4, OBSTACLE_MAX_GAP - speedRef.current * 0.02);
           obstacleTimerRef.current = randomRange(minGap, maxGap);
@@ -210,51 +228,39 @@ export default function GameCanvas() {
         context.clearRect(0, 0, canvas.width, canvas.height);
         const groundY = getGroundY(canvas.height);
 
-        context.fillStyle = '#0d1b2a';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-
-        context.fillStyle = '#1b263b';
-        context.fillRect(0, groundY, canvas.width, canvas.height - groundY);
-
-        context.strokeStyle = '#415a77';
-        context.lineWidth = 4;
-        context.beginPath();
-        context.moveTo(0, groundY + 2);
-        context.lineTo(canvas.width, groundY + 2);
-        context.stroke();
+        context.imageSmoothingEnabled = false;
+        drawBackground(context, canvas.width, canvas.height, groundY, backgroundOffsetRef.current);
 
         const player = playerRef.current;
         if (player) {
-          context.fillStyle = '#f0f6ff';
-          context.fillRect(player.x, player.y, player.width, player.height);
-          context.fillStyle = '#3a86ff';
-          context.fillRect(player.x + 6, player.y + 10, player.width - 12, player.height - 20);
+          const playerState =
+            statusRef.current === 'GAME_OVER'
+              ? 'HIT'
+              : player.isGrounded
+                ? 'RUN'
+                : 'JUMP';
+          drawPlayer(context, player, playerState, animationTimeRef.current);
         }
 
         coinsRef.current.forEach((coin) => {
           if (coin.collected) {
             return;
           }
-          context.beginPath();
-          context.fillStyle = '#ffd60a';
-          context.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
-          context.fill();
-          context.strokeStyle = '#ffb703';
-          context.lineWidth = 3;
-          context.stroke();
+          drawCookieCoin(context, coin, animationTimeRef.current);
         });
 
         obstaclesRef.current.forEach((obstacle) => {
-          context.fillStyle = obstacle.type === 'HIGH' ? '#ef476f' : '#ffd166';
-          context.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+          drawObstacle(context, obstacle);
         });
 
         if (statusRef.current === 'READY') {
-          drawOverlay('Tap / Space to Start', canvas, context);
+          drawOverlay('Press Space to Start', canvas, context);
         }
         if (statusRef.current === 'GAME_OVER') {
           drawOverlay('Game Over', canvas, context);
         }
+
+        drawScanlines(context, canvas.width, canvas.height);
       };
 
       render();
@@ -323,7 +329,7 @@ export default function GameCanvas() {
       {status === 'READY' ? (
         <div className="overlay">
           <div className="overlay-panel">
-            <h2>Coin Runner</h2>
+            <h2>Dubai Cookie Dash</h2>
             <p>Tap or press Space to jump.</p>
             <button type="button" onClick={startGame}>
               Start
@@ -344,7 +350,292 @@ const drawOverlay = (
   context.fillRect(0, 0, canvas.width, canvas.height);
 
   context.fillStyle = '#f8f9fa';
-  context.font = '700 32px "Inter", system-ui, sans-serif';
+  context.font = '700 24px "Press Start 2P", system-ui, sans-serif';
   context.textAlign = 'center';
   context.fillText(message, canvas.width / 2, canvas.height / 2);
+};
+
+type Sprite = string[];
+
+const PALETTE = {
+  outline: '#0a0f1e',
+  skin: '#f6c79f',
+  hair: '#2b2b2b',
+  shirt: '#4cc9f0',
+  pants: '#4361ee',
+  boots: '#111827',
+  cookie: '#4b2d19',
+  cookieShadow: '#2a160d',
+  pistachio: '#74c69d',
+  pistachioDark: '#40916c',
+  highlight: '#fef9c3',
+  chrome: '#00f5d4',
+  neon: '#f72585'
+};
+
+const PLAYER_RUN_FRAMES: Sprite[] = [
+  [
+    '....OOOO....',
+    '...OHHHHO...',
+    '..OHSSSHO...',
+    '..OHSTTTHO..',
+    '..OHSTTTHO..',
+    '..OOSTTTOO..',
+    '..OOPPPPOO..',
+    '..OPPPPPPO..',
+    '...OPPPO...',
+    '..OOP.OOO...',
+    '..OO...OO...',
+    '...B...B....'
+  ],
+  [
+    '....OOOO....',
+    '...OHHHHO...',
+    '..OHSSSHO...',
+    '..OHSTTTHO..',
+    '..OHSTTTHO..',
+    '..OOSTTTOO..',
+    '..OOPPPPOO..',
+    '..OPPPPPPO..',
+    '...OPPPO...',
+    '...OO.OOO...',
+    '..OO...OO...',
+    '..B.....B...'
+  ],
+  [
+    '....OOOO....',
+    '...OHHHHO...',
+    '..OHSSSHO...',
+    '..OHSTTTHO..',
+    '..OHSTTTHO..',
+    '..OOSTTTOO..',
+    '..OOPPPPOO..',
+    '..OPPPPPPO..',
+    '....PPPO....',
+    '...OO.OO....',
+    '..OO...OO...',
+    '..B.....B...'
+  ],
+  [
+    '....OOOO....',
+    '...OHHHHO...',
+    '..OHSSSHO...',
+    '..OHSTTTHO..',
+    '..OHSTTTHO..',
+    '..OOSTTTOO..',
+    '..OOPPPPOO..',
+    '..OPPPPPPO..',
+    '...OPPPO...',
+    '..OO.OOO....',
+    '..OO...OO...',
+    '...B...B....'
+  ]
+];
+
+const PLAYER_JUMP: Sprite = [
+  '....OOOO....',
+  '...OHHHHO...',
+  '..OHSSSHO...',
+  '..OHSTTTHO..',
+  '..OHSTTTHO..',
+  '..OOSTTTOO..',
+  '..OOPPPPOO..',
+  '..OPPPPPPO..',
+  '...OPPPPO...',
+  '...OO..OO...',
+  '..OO....OO..',
+  '..B.....B...'
+];
+
+const PLAYER_HIT: Sprite = [
+  '....OOOO....',
+  '...OHHHHO...',
+  '..OHSXSHO...',
+  '..OHSTTTHO..',
+  '..OHSTTTHO..',
+  '..OOSTTTOO..',
+  '..OOPPPPOO..',
+  '..OPPPPPPO..',
+  '...OPPPPO...',
+  '..OO..OO....',
+  '.OO....OO...',
+  'B.......B...'
+];
+
+const COOKIE_SPRITE: Sprite = [
+  '..cccccccc..',
+  '.cccchhhhcc.',
+  '.ccchpphccc.',
+  'cchpppphhcc.',
+  'cchpppphhcc.',
+  'ccchppphccc.',
+  '.ccchhhhhcc.',
+  '..cccccccc..',
+  '..cccchhcc..',
+  '.ccchpphccc.',
+  '.cccchhhhcc.',
+  '..cccccccc..'
+];
+
+const BIKE_SPRITE: Sprite = [
+  'bb....bb',
+  'b.pppp.b',
+  'bppppppb',
+  'b.pppp.b',
+  'bb....bb',
+  '..pppp..'
+];
+
+const CAR_SPRITE: Sprite = [
+  '..rrrrrrrr..',
+  '.rnnnnnnnnr.',
+  'rnnnssnnnnrr',
+  'rnnnnnnnnnrr',
+  '.rnnnnnnnnr.',
+  '..rr..rr....'
+];
+
+const SCOOTER_SPRITE: Sprite = [
+  'sssssss',
+  'snnnnns',
+  'snnnnns',
+  's..s..s',
+  'ww..ww.'
+];
+
+const drawSprite = (
+  context: CanvasRenderingContext2D,
+  sprite: Sprite,
+  x: number,
+  y: number,
+  scale: number,
+  colorMap: Record<string, string>
+) => {
+  sprite.forEach((row, rowIndex) => {
+    row.split('').forEach((cell, colIndex) => {
+      if (cell === '.') {
+        return;
+      }
+      const color = colorMap[cell];
+      if (!color) {
+        return;
+      }
+      context.fillStyle = color;
+      context.fillRect(x + colIndex * scale, y + rowIndex * scale, scale, scale);
+    });
+  });
+};
+
+const drawPlayer = (
+  context: CanvasRenderingContext2D,
+  player: Player,
+  state: 'RUN' | 'JUMP' | 'HIT',
+  time: number
+) => {
+  const scale = 4;
+  const sprite =
+    state === 'RUN'
+      ? PLAYER_RUN_FRAMES[Math.floor((time * 8) % PLAYER_RUN_FRAMES.length)]
+      : state === 'JUMP'
+        ? PLAYER_JUMP
+        : PLAYER_HIT;
+
+  drawSprite(context, sprite, player.x, player.y, scale, {
+    O: PALETTE.outline,
+    S: PALETTE.skin,
+    H: PALETTE.hair,
+    P: PALETTE.pants,
+    B: PALETTE.boots,
+    X: PALETTE.neon,
+    T: PALETTE.shirt
+  });
+};
+
+const drawCookieCoin = (context: CanvasRenderingContext2D, coin: Coin, time: number) => {
+  const scale = 2;
+  const shimmer = Math.sin(time * 6 + coin.shimmerOffset) > 0.6;
+  drawSprite(context, COOKIE_SPRITE, coin.x, coin.y, scale, {
+    c: PALETTE.cookie,
+    h: PALETTE.cookieShadow,
+    p: shimmer ? PALETTE.highlight : PALETTE.pistachio
+  });
+  if (shimmer) {
+    context.fillStyle = PALETTE.highlight;
+    context.fillRect(coin.x + 4, coin.y + 2, 2, 2);
+  }
+};
+
+const drawObstacle = (context: CanvasRenderingContext2D, obstacle: Obstacle) => {
+  const sprite =
+    obstacle.type === 'CAR' ? CAR_SPRITE : obstacle.type === 'BIKE' ? BIKE_SPRITE : SCOOTER_SPRITE;
+  const scale = 4;
+  const offsetX = obstacle.x;
+  const offsetY = obstacle.y + obstacle.height - sprite.length * scale;
+  drawSprite(context, sprite, offsetX, offsetY, scale, {
+    b: PALETTE.outline,
+    p: PALETTE.chrome,
+    r: PALETTE.neon,
+    n: '#1f2937',
+    s: '#4cc9f0',
+    w: '#f8f9fa'
+  });
+};
+
+const drawBackground = (
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  groundY: number,
+  offset: number
+) => {
+  context.fillStyle = '#05070f';
+  context.fillRect(0, 0, width, height);
+
+  const layerOffset = offset * 0.3;
+  const layerOffset2 = offset * 0.6;
+  for (let x = -120; x < width + 120; x += 120) {
+    const neonX = x - (layerOffset % 120);
+    context.fillStyle = '#0b0f24';
+    context.fillRect(neonX, 40, 90, 120);
+    context.fillStyle = '#1b2a4a';
+    context.fillRect(neonX + 10, 50, 70, 80);
+    context.fillStyle = PALETTE.neon;
+    context.fillRect(neonX + 8, 50, 4, 80);
+  }
+
+  for (let x = -160; x < width + 160; x += 160) {
+    const neonX = x - (layerOffset2 % 160);
+    context.fillStyle = '#111827';
+    context.fillRect(neonX, 120, 110, 90);
+    context.fillStyle = '#0f172a';
+    context.fillRect(neonX + 8, 128, 94, 60);
+    context.fillStyle = PALETTE.chrome;
+    context.fillRect(neonX + 12, 128, 3, 60);
+  }
+
+  context.fillStyle = '#0d1328';
+  context.fillRect(0, groundY, width, height - groundY);
+
+  const tileSize = 16;
+  for (let x = -tileSize; x < width + tileSize; x += tileSize) {
+    const tileX = x - (offset % tileSize);
+    context.fillStyle = '#1f2a44';
+    context.fillRect(tileX, groundY, tileSize, tileSize);
+    context.fillStyle = '#111a33';
+    context.fillRect(tileX + 2, groundY + 2, tileSize - 4, tileSize - 4);
+  }
+
+  context.strokeStyle = '#4361ee';
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(0, groundY + 1);
+  context.lineTo(width, groundY + 1);
+  context.stroke();
+};
+
+const drawScanlines = (context: CanvasRenderingContext2D, width: number, height: number) => {
+  context.fillStyle = 'rgba(0, 0, 0, 0.2)';
+  for (let y = 0; y < height; y += 4) {
+    context.fillRect(0, y, width, 1);
+  }
 };

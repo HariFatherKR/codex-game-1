@@ -5,10 +5,11 @@ export default function HomePage() {
     <main className="page">
       <header className="hero">
         <div>
-          <p className="eyebrow">Next.js Canvas Runner</p>
-          <h1>Coin Runner</h1>
+          <p className="eyebrow">8-bit Arcade Runner</p>
+          <h1>Dubai Cookie Dash</h1>
           <p className="subtitle">
-            Dash forward, time your jumps, and collect coins as the speed ramps up.
+            픽셀 네온 아케이드에서 점프 타이밍을 맞추고 두바이 쫀득쿠키 코인을
+            모아보세요.
           </p>
         </div>
         <div className="hero-card">
@@ -23,7 +24,7 @@ export default function HomePage() {
         <GameCanvas />
       </section>
       <footer className="footer">
-        <p>Built for Vercel deployment with Next.js App Router.</p>
+        <p>Next.js App Router + Vercel ready.</p>
       </footer>
     </main>
   );

@@ -1,7 +1,7 @@
 :root {
   color-scheme: dark;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: #0b1320;
+  font-family: var(--font-pixel), 'Press Start 2P', system-ui, sans-serif;
+  background: #05070f;
   color: #f8f9fa;
 }
 
@@ -11,14 +11,14 @@
 
 body {
   margin: 0;
-  background: radial-gradient(circle at top, #1b263b 0%, #0b1320 60%);
+  background: radial-gradient(circle at top, #111827 0%, #05070f 65%);
   min-height: 100vh;
 }
 
 .page {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 48px 24px 64px;
+  padding: 40px 24px 64px;
   display: flex;
   flex-direction: column;
   gap: 32px;
@@ -42,25 +42,25 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-size: 12px;
-  color: #adb5bd;
+  color: #7dd3fc;
   margin: 0;
 }
 
 h1 {
   margin: 8px 0;
-  font-size: clamp(2.4rem, 4vw, 3.4rem);
+  font-size: clamp(2rem, 3vw, 3rem);
 }
 
 .subtitle {
   margin: 0;
-  color: #ced4da;
+  color: #cbd5f5;
   max-width: 480px;
 }
 
 .hero-card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 16px;
+  background: #0f172a;
+  border: 2px solid #1d4ed8;
+  border-radius: 12px;
   padding: 18px 20px;
   min-width: 220px;
 }
@@ -73,23 +73,25 @@ h1 {
 .hero-card ul {
   margin: 0;
   padding-left: 18px;
-  color: #dee2e6;
+  color: #e2e8f0;
 }
 
 .game-section {
-  border-radius: 24px;
-  background: rgba(13, 27, 42, 0.7);
-  padding: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 18px;
+  background: #0b0f24;
+  padding: 16px;
+  border: 2px solid #1e293b;
 }
 
 .game-shell {
   position: relative;
-  border-radius: 20px;
+  border-radius: 14px;
   overflow: hidden;
   height: min(68vh, 560px);
   min-height: 380px;
   outline: none;
+  border: 3px solid #111827;
+  box-shadow: 0 0 0 4px #0f172a, 0 0 30px rgba(76, 201, 240, 0.25);
 }
 
 .game-canvas {
@@ -108,23 +110,23 @@ h1 {
 }
 
 .hud-block {
-  background: rgba(15, 23, 42, 0.75);
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(10, 14, 32, 0.8);
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 2px solid #1e40af;
 }
 
 .hud-label {
   display: block;
   font-size: 11px;
-  color: #adb5bd;
+  color: #93c5fd;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
 
 .hud-value {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 400;
 }
 
 .overlay {
@@ -139,10 +141,10 @@ h1 {
 
 .overlay-panel {
   text-align: center;
-  background: rgba(15, 23, 42, 0.85);
+  background: rgba(9, 13, 30, 0.95);
   padding: 24px 32px;
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  border: 2px solid #1d4ed8;
 }
 
 .overlay-panel h2 {
@@ -151,33 +153,33 @@ h1 {
 
 .overlay-panel p {
   margin: 6px 0;
-  color: #ced4da;
+  color: #c7d2fe;
 }
 
 .overlay-panel button {
   margin-top: 16px;
-  padding: 10px 20px;
-  border-radius: 999px;
-  border: none;
-  background: #3a86ff;
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: 2px solid #f72585;
+  background: #1f2937;
   color: white;
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
 }
 
 .overlay-panel button:hover {
-  background: #4c94ff;
+  background: #1f1b3a;
 }
 
 .hint {
   display: block;
   margin-top: 12px;
   font-size: 12px;
-  color: #adb5bd;
+  color: #94a3b8;
 }
 
 .footer {
   text-align: center;
-  color: #adb5bd;
+  color: #94a3b8;
   font-size: 0.9rem;
 }
