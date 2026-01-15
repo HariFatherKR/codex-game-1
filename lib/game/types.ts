@@ -23,7 +23,7 @@ export type Obstacle = {
   y: number;
   width: number;
   height: number;
-  type: 'LOW' | 'HIGH';
+  type: 'BIKE' | 'CAR' | 'SCOOTER';
 };
 
 export type GameSnapshot = {

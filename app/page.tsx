@@ -5,10 +5,10 @@ export default function HomePage() {
     <main className="page">
       <header className="hero">
         <div>
-          <p className="eyebrow">Next.js Canvas Runner</p>
-          <h1>Coin Runner</h1>
+          <p className="eyebrow">8-Bit Arcade Runner</p>
+          <h1>Cookie Dash</h1>
           <p className="subtitle">
-            Dash forward, time your jumps, and collect coins as the speed ramps up.
+            Neon arcade vibes, chibi hero sprites, and Dubai cookie coins in pixel glory.
           </p>
         </div>
         <div className="hero-card">

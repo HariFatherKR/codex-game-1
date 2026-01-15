@@ -1,7 +1,7 @@
 :root {
   color-scheme: dark;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: #0b1320;
+  font-family: var(--font-body), 'VT323', monospace;
+  background: #070615;
   color: #f8f9fa;
 }
 
@@ -11,7 +11,7 @@
 
 body {
   margin: 0;
-  background: radial-gradient(circle at top, #1b263b 0%, #0b1320 60%);
+  background: radial-gradient(circle at top, #2b0f4a 0%, #070615 65%);
   min-height: 100vh;
 }
 
@@ -42,27 +42,30 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-size: 12px;
-  color: #adb5bd;
+  color: #f2d0ff;
   margin: 0;
 }
 
 h1 {
   margin: 8px 0;
-  font-size: clamp(2.4rem, 4vw, 3.4rem);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-family: var(--font-display), 'Press Start 2P', monospace;
+  letter-spacing: 0.08em;
 }
 
 .subtitle {
   margin: 0;
-  color: #ced4da;
+  color: #d7d7ff;
   max-width: 480px;
 }
 
 .hero-card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 16px;
+  background: rgba(13, 10, 32, 0.8);
+  border: 2px solid #7c5cff;
+  border-radius: 12px;
   padding: 18px 20px;
   min-width: 220px;
+  box-shadow: 0 0 0 2px rgba(16, 10, 34, 0.9);
 }
 
 .hero-card p {
@@ -73,23 +76,25 @@ h1 {
 .hero-card ul {
   margin: 0;
   padding-left: 18px;
-  color: #dee2e6;
+  color: #f8f9fa;
 }
 
 .game-section {
-  border-radius: 24px;
-  background: rgba(13, 27, 42, 0.7);
-  padding: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 20px;
+  background: rgba(10, 8, 24, 0.9);
+  padding: 16px;
+  border: 2px solid #5ef0ff;
 }
 
 .game-shell {
   position: relative;
-  border-radius: 20px;
+  border-radius: 12px;
   overflow: hidden;
   height: min(68vh, 560px);
   min-height: 380px;
   outline: none;
+  border: 2px solid rgba(124, 92, 255, 0.9);
+  box-shadow: 0 0 0 3px rgba(12, 7, 25, 0.9);
 }
 
 .game-canvas {
@@ -108,16 +113,17 @@ h1 {
 }
 
 .hud-block {
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(10, 8, 24, 0.85);
   padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 6px;
+  border: 2px solid rgba(94, 240, 255, 0.7);
+  text-transform: uppercase;
 }
 
 .hud-label {
   display: block;
-  font-size: 11px;
-  color: #adb5bd;
+  font-size: 10px;
+  color: #f2d0ff;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
@@ -125,6 +131,7 @@ h1 {
 .hud-value {
   font-size: 18px;
   font-weight: 700;
+  color: #fff4b8;
 }
 
 .overlay {
@@ -133,51 +140,55 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(8, 12, 24, 0.6);
+  background: rgba(8, 7, 18, 0.7);
   z-index: 3;
 }
 
 .overlay-panel {
   text-align: center;
-  background: rgba(15, 23, 42, 0.85);
+  background: rgba(11, 9, 24, 0.92);
   padding: 24px 32px;
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  border: 2px solid rgba(255, 119, 233, 0.7);
+  box-shadow: 0 0 0 3px rgba(8, 7, 18, 0.9);
 }
 
 .overlay-panel h2 {
   margin: 0 0 12px 0;
+  font-family: var(--font-display), 'Press Start 2P', monospace;
 }
 
 .overlay-panel p {
   margin: 6px 0;
-  color: #ced4da;
+  color: #d7d7ff;
 }
 
 .overlay-panel button {
   margin-top: 16px;
   padding: 10px 20px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: none;
-  background: #3a86ff;
-  color: white;
-  font-weight: 600;
+  background: #5ef0ff;
+  color: #090817;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-family: var(--font-display), 'Press Start 2P', monospace;
   cursor: pointer;
 }
 
 .overlay-panel button:hover {
-  background: #4c94ff;
+  background: #7cf7ff;
 }
 
 .hint {
   display: block;
   margin-top: 12px;
   font-size: 12px;
-  color: #adb5bd;
+  color: #f2d0ff;
 }
 
 .footer {
   text-align: center;
-  color: #adb5bd;
+  color: #bdb2ff;
   font-size: 0.9rem;
 }

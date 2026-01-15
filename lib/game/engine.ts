@@ -4,10 +4,9 @@ import {
   COIN_SCORE,
   GROUND_HEIGHT,
   GRAVITY,
-  HIGH_OBSTACLE,
   JUMP_FORCE,
-  LOW_OBSTACLE,
   MAX_SPEED,
+  OBSTACLE_TYPES,
   PLAYER_HEIGHT,
   PLAYER_WIDTH,
   PLAYER_X,
@@ -63,16 +62,32 @@ export const createCoin = (canvasWidth: number, groundY: number): Coin => {
   };
 };
 
-export const createObstacle = (canvasWidth: number, groundY: number): Obstacle => {
-  const isHigh = Math.random() > 0.55;
-  const obstacle = isHigh ? HIGH_OBSTACLE : LOW_OBSTACLE;
+const pickObstacleType = (lastType?: Obstacle['type']): (typeof OBSTACLE_TYPES)[number] => {
+  const available = lastType === 'CAR' ? OBSTACLE_TYPES.filter((item) => item.type !== 'CAR') : OBSTACLE_TYPES;
+  const totalWeight = available.reduce((sum, item) => sum + item.weight, 0);
+  let roll = Math.random() * totalWeight;
+  for (const item of available) {
+    roll -= item.weight;
+    if (roll <= 0) {
+      return item;
+    }
+  }
+  return available[0];
+};
+
+export const createObstacle = (
+  canvasWidth: number,
+  groundY: number,
+  lastType?: Obstacle['type']
+): Obstacle => {
+  const obstacle = pickObstacleType(lastType);
   return {
     id: objectId++,
     x: canvasWidth + 60,
     y: groundY - obstacle.height,
     width: obstacle.width,
     height: obstacle.height,
-    type: isHigh ? 'HIGH' : 'LOW'
+    type: obstacle.type
   };
 };
 
