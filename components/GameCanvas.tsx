@@ -1,13 +1,23 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import {
+  BASE_RESOLUTIONS,
+  COIN_LIFTS,
+  COIN_LIFTS_MOBILE,
   COIN_MAX_GAP,
   COIN_MIN_GAP,
-  GAME_HEIGHT,
-  GAME_WIDTH,
+  GameMode,
+  JUMP_FORCE,
+  JUMP_FORCE_MOBILE,
   OBSTACLE_MAX_GAP,
-  OBSTACLE_MIN_GAP
+  OBSTACLE_MAX_GAP_MOBILE,
+  OBSTACLE_MIN_DISTANCE,
+  OBSTACLE_MIN_DISTANCE_MOBILE,
+  OBSTACLE_MIN_GAP,
+  OBSTACLE_MIN_GAP_MOBILE,
+  PLAYER_X,
+  PLAYER_X_MOBILE
 } from '@/lib/game/constants';
 import {
   checkCoinCollision,
@@ -28,6 +38,29 @@ import type { Coin, GameStatus, Obstacle, Player } from '@/lib/game/types';
 import { readHighScore, writeHighScore } from '@/lib/game/storage';
 
 const randomRange = (min: number, max: number): number => min + Math.random() * (max - min);
+const getMode = (): GameMode =>
+  window.matchMedia('(max-width: 767px)').matches ? 'mobile' : 'desktop';
+
+const CONFIG = {
+  mobile: {
+    ...BASE_RESOLUTIONS.mobile,
+    playerX: PLAYER_X_MOBILE,
+    jumpForce: JUMP_FORCE_MOBILE,
+    obstacleMinGap: OBSTACLE_MIN_GAP_MOBILE,
+    obstacleMaxGap: OBSTACLE_MAX_GAP_MOBILE,
+    obstacleMinDistance: OBSTACLE_MIN_DISTANCE_MOBILE,
+    coinLifts: COIN_LIFTS_MOBILE
+  },
+  desktop: {
+    ...BASE_RESOLUTIONS.desktop,
+    playerX: PLAYER_X,
+    jumpForce: JUMP_FORCE,
+    obstacleMinGap: OBSTACLE_MIN_GAP,
+    obstacleMaxGap: OBSTACLE_MAX_GAP,
+    obstacleMinDistance: OBSTACLE_MIN_DISTANCE,
+    coinLifts: COIN_LIFTS
+  }
+} as const;
 
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -45,15 +78,19 @@ export default function GameCanvas() {
   const lastObstacleTypeRef = useRef<Obstacle['type'] | null>(null);
   const backgroundOffsetRef = useRef<number>(0);
   const animationTimeRef = useRef<number>(0);
+  const configRef = useRef(CONFIG.desktop);
 
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [speedDisplay, setSpeedDisplay] = useState<number>(Math.round(speedRef.current));
   const [status, setStatus] = useState<GameStatus>('READY');
+  const [mode, setMode] = useState<GameMode>('desktop');
+  const [soundOn, setSoundOn] = useState(true);
+  const config = CONFIG[mode];
 
-  const resetGame = (canvas: HTMLCanvasElement) => {
+  const resetGame = (canvas: HTMLCanvasElement, config = configRef.current) => {
     const groundY = getGroundY(canvas.height);
-    playerRef.current = createPlayer(groundY);
+    playerRef.current = createPlayer(groundY, config.playerX);
     coinsRef.current = [];
     obstaclesRef.current = [];
     speedRef.current = resetSpeed();
@@ -109,12 +146,65 @@ export default function GameCanvas() {
     if (!player) {
       return;
     }
-    jumpPlayer(player);
+    jumpPlayer(player, configRef.current.jumpForce);
+  };
+
+  const stopPointer = (event: PointerEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+  };
+
+  const handleSoundToggle = () => {
+    setSoundOn((prev) => !prev);
+  };
+
+  const handleShare = async () => {
+    const shareData = {
+      title: 'Dubai Cookie Dash',
+      text: 'Can you beat my score in Dubai Cookie Dash?',
+      url: window.location.href
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch {
+        return;
+      }
+      return;
+    }
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+      } catch {
+        return;
+      }
+    }
   };
 
   useEffect(() => {
     setHighScore(readHighScore());
   }, []);
+
+  useEffect(() => {
+    const updateMode = () => {
+      setMode(getMode());
+    };
+
+    updateMode();
+    window.addEventListener('resize', updateMode);
+
+    return () => window.removeEventListener('resize', updateMode);
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+    configRef.current = config;
+    canvas.width = config.width;
+    canvas.height = config.height;
+    resetGame(canvas, config);
+  }, [config]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -127,11 +217,12 @@ export default function GameCanvas() {
     }
 
     const resizeCanvas = () => {
+      configRef.current = config;
       const parent = canvas.parentElement;
       if (!parent) {
         return;
       }
-      const { width, height } = parent.getBoundingClientRect();
+      const { width, height } = configRef.current;
       canvas.width = width;
       canvas.height = height;
       if (!playerRef.current) {
@@ -139,6 +230,7 @@ export default function GameCanvas() {
       } else {
         const groundY = getGroundY(canvas.height);
         playerRef.current.y = groundY - playerRef.current.height;
+        playerRef.current.x = configRef.current.playerX;
       }
     };
 
@@ -176,12 +268,14 @@ export default function GameCanvas() {
         obstacleTimerRef.current -= delta;
 
         if (coinTimerRef.current <= 0) {
-          coinsRef.current.push(createCoin(canvas.width, groundY));
+          coinsRef.current.push(
+            createCoin(canvas.width, groundY, configRef.current.coinLifts)
+          );
           coinTimerRef.current = randomRange(COIN_MIN_GAP, COIN_MAX_GAP);
         }
         if (obstacleTimerRef.current <= 0) {
           const lastObstacle = obstaclesRef.current[obstaclesRef.current.length - 1];
-          const minDistance = 180;
+          const minDistance = configRef.current.obstacleMinDistance;
           if (!lastObstacle || lastObstacle.x < canvas.width - minDistance) {
             const nextObstacle = createObstacle(
               canvas.width,
@@ -191,8 +285,14 @@ export default function GameCanvas() {
             obstaclesRef.current.push(nextObstacle);
             lastObstacleTypeRef.current = nextObstacle.type;
           }
-          const minGap = Math.max(0.9, OBSTACLE_MIN_GAP - speedRef.current * 0.02);
-          const maxGap = Math.max(1.4, OBSTACLE_MAX_GAP - speedRef.current * 0.02);
+          const minGap = Math.max(
+            0.9,
+            configRef.current.obstacleMinGap - speedRef.current * 0.02
+          );
+          const maxGap = Math.max(
+            1.4,
+            configRef.current.obstacleMaxGap - speedRef.current * 0.02
+          );
           obstacleTimerRef.current = randomRange(minGap, maxGap);
         }
 
@@ -283,14 +383,20 @@ export default function GameCanvas() {
         cancelAnimationFrame(frameRef.current);
       }
     };
-  }, [highScore]);
+  }, [config, highScore, mode]);
 
   return (
     <div
       className="game-shell"
       role="button"
       tabIndex={0}
-      onPointerDown={handleJump}
+      onPointerDown={(event) => {
+        const target = event.target as HTMLElement | null;
+        if (target?.closest('button')) {
+          return;
+        }
+        handleJump();
+      }}
       onKeyDown={(event) => {
         if (event.key === ' ') {
           event.preventDefault();
@@ -298,28 +404,61 @@ export default function GameCanvas() {
         }
       }}
     >
-      <div className="hud">
+      <div className="hud hud-top-left">
         <div className="hud-block">
           <span className="hud-label">Score</span>
           <span className="hud-value">{score}</span>
         </div>
-        <div className="hud-block">
+      </div>
+      <div className="hud hud-top-right">
+        <div className="hud-block hud-block-compact">
           <span className="hud-label">High</span>
           <span className="hud-value">{highScore}</span>
         </div>
-        <div className="hud-block">
+        <div className="hud-block hud-block-compact">
           <span className="hud-label">Speed</span>
           <span className="hud-value">{speedDisplay}</span>
         </div>
       </div>
-      <canvas ref={canvasRef} className="game-canvas" width={GAME_WIDTH} height={GAME_HEIGHT} />
+      <div className="hud hud-bottom-left">
+        <button
+          type="button"
+          className="hud-button"
+          onPointerDown={stopPointer}
+          onClick={handleSoundToggle}
+        >
+          Sound {soundOn ? 'On' : 'Off'}
+        </button>
+      </div>
+      <div className="hud hud-bottom-right">
+        <button
+          type="button"
+          className="hud-button"
+          onPointerDown={stopPointer}
+          onClick={() => {
+            void handleShare();
+          }}
+        >
+          Share
+        </button>
+      </div>
+      <canvas
+        ref={canvasRef}
+        className="game-canvas"
+        width={config.width}
+        height={config.height}
+      />
       {status === 'GAME_OVER' ? (
         <div className="overlay">
           <div className="overlay-panel">
             <h2>Game Over</h2>
             <p>Score: {score}</p>
             <p>High Score: {highScore}</p>
-            <button type="button" onClick={restartGame}>
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={restartGame}
+            >
               Restart
             </button>
             <span className="hint">Press Enter or tap to restart</span>
@@ -331,7 +470,11 @@ export default function GameCanvas() {
           <div className="overlay-panel">
             <h2>Dubai Cookie Dash</h2>
             <p>Tap or press Space to jump.</p>
-            <button type="button" onClick={startGame}>
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={startGame}
+            >
               Start
             </button>
           </div>

@@ -6,20 +6,18 @@ import {
   CAR_OBSTACLE,
   GROUND_HEIGHT,
   GRAVITY,
-  JUMP_FORCE,
   MAX_SPEED,
   PLAYER_HEIGHT,
   PLAYER_WIDTH,
   SCOOTER_OBSTACLE,
-  PLAYER_X,
   SPEED_RAMP
 } from './constants';
 import type { Coin, GameSnapshot, Obstacle, Player } from './types';
 
 let objectId = 0;
 
-export const createPlayer = (groundY: number): Player => ({
-  x: PLAYER_X,
+export const createPlayer = (groundY: number, playerX: number): Player => ({
+  x: playerX,
   y: groundY - PLAYER_HEIGHT,
   width: PLAYER_WIDTH,
   height: PLAYER_HEIGHT,
@@ -29,11 +27,11 @@ export const createPlayer = (groundY: number): Player => ({
 
 export const getGroundY = (height: number): number => height - GROUND_HEIGHT;
 
-export const jumpPlayer = (player: Player): void => {
+export const jumpPlayer = (player: Player, jumpForce: number): void => {
   if (!player.isGrounded) {
     return;
   }
-  player.velocityY = -JUMP_FORCE;
+  player.velocityY = -jumpForce;
   player.isGrounded = false;
 };
 
@@ -53,11 +51,11 @@ export const increaseSpeed = (speed: number, deltaSeconds: number): number => {
   return Math.min(next, MAX_SPEED);
 };
 
-export const createCoin = (canvasWidth: number, groundY: number): Coin => {
-  const lift = Math.random() > 0.5 ? 110 : 60;
+export const createCoin = (worldWidth: number, groundY: number, lifts: number[]): Coin => {
+  const lift = lifts[Math.floor(Math.random() * lifts.length)] ?? 60;
   return {
     id: objectId++,
-    x: canvasWidth + 40,
+    x: worldWidth + 40,
     y: groundY - lift,
     size: COIN_SIZE,
     shimmerOffset: Math.random() * 2 * Math.PI,

@@ -20,7 +20,7 @@ export default function HomePage() {
           </ul>
         </div>
       </header>
-      <section className="game-section">
+      <section className="game-stage">
         <GameCanvas />
       </section>
       <footer className="footer">
