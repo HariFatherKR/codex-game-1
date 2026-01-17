@@ -50,6 +50,8 @@ export default function GameCanvas() {
   const [highScore, setHighScore] = useState(0);
   const [speedDisplay, setSpeedDisplay] = useState<number>(Math.round(speedRef.current));
   const [status, setStatus] = useState<GameStatus>('READY');
+  const [isMuted, setIsMuted] = useState(false);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
 
   const resetGame = (canvas: HTMLCanvasElement) => {
     const groundY = getGroundY(canvas.height);
@@ -110,6 +112,36 @@ export default function GameCanvas() {
       return;
     }
     jumpPlayer(player);
+  };
+
+  const handleShare = async () => {
+    const text = '내 점수 이겼으면 인증해 😎 Dubai Cookie Dash';
+    const url = window.location.href;
+    const shareData = {
+      title: 'Dubai Cookie Dash',
+      text,
+      url
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        setShareNotice('공유 완료!');
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`${text} ${url}`);
+        setShareNotice('링크 복사됨');
+      } else {
+        setShareNotice('공유 불가');
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setShareNotice('공유 취소됨');
+      } else {
+        setShareNotice('공유 실패');
+      }
+    } finally {
+      window.setTimeout(() => setShareNotice(null), 2000);
+    }
   };
 
   useEffect(() => {
@@ -298,20 +330,46 @@ export default function GameCanvas() {
         }
       }}
     >
-      <div className="hud">
-        <div className="hud-block">
-          <span className="hud-label">Score</span>
-          <span className="hud-value">{score}</span>
+      <div
+        className="hud-bar"
+        onPointerDown={(event) => {
+          event.stopPropagation();
+        }}
+      >
+        <div className="hud">
+          <div className="hud-block">
+            <span className="hud-label">Score</span>
+            <span className="hud-value">{score}</span>
+          </div>
+          <div className="hud-block">
+            <span className="hud-label">High</span>
+            <span className="hud-value">{highScore}</span>
+          </div>
+          <div className="hud-block">
+            <span className="hud-label">Speed</span>
+            <span className="hud-value">{speedDisplay}</span>
+          </div>
         </div>
-        <div className="hud-block">
-          <span className="hud-label">High</span>
-          <span className="hud-value">{highScore}</span>
-        </div>
-        <div className="hud-block">
-          <span className="hud-label">Speed</span>
-          <span className="hud-value">{speedDisplay}</span>
+        <div className="hud-actions">
+          <button
+            type="button"
+            className="hud-button"
+            onClick={handleShare}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            Share
+          </button>
+          <button
+            type="button"
+            className="hud-button"
+            onClick={() => setIsMuted((prev) => !prev)}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            Sound {isMuted ? 'Off' : 'On'}
+          </button>
         </div>
       </div>
+      {shareNotice ? <div className="hud-toast">{shareNotice}</div> : null}
       <canvas ref={canvasRef} className="game-canvas" width={GAME_WIDTH} height={GAME_HEIGHT} />
       {status === 'GAME_OVER' ? (
         <div className="overlay">
@@ -330,7 +388,7 @@ export default function GameCanvas() {
         <div className="overlay">
           <div className="overlay-panel">
             <h2>Dubai Cookie Dash</h2>
-            <p>Tap or press Space to jump.</p>
+            <p>Tap to Jump</p>
             <button type="button" onClick={startGame}>
               Start
             </button>
