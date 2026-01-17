@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createGameConfig } from '@/lib/game/constants';
 import {
   checkCoinCollision,
@@ -42,9 +43,16 @@ export default function GameCanvas() {
 
   const [isMobile, setIsMobile] = useState(false);
   const [score, setScore] = useState(0);
+  const [finalScore, setFinalScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [speedDisplay, setSpeedDisplay] = useState<number>(0);
   const [status, setStatus] = useState<GameStatus>('READY');
+  const [friendScore, setFriendScore] = useState<number | null>(null);
+  const [isFriendScoreDismissed, setIsFriendScoreDismissed] = useState(false);
+  const [shareToast, setShareToast] = useState<string | null>(null);
+  const shareToastTimerRef = useRef<number | null>(null);
+
+  const searchParams = useSearchParams();
 
   const config = useMemo(() => createGameConfig(isMobile), [isMobile]);
 
@@ -85,10 +93,51 @@ export default function GameCanvas() {
   const triggerGameOver = () => {
     statusRef.current = 'GAME_OVER';
     setStatus('GAME_OVER');
+    setFinalScore(scoreRef.current);
     const nextHigh = Math.max(scoreRef.current, highScore);
     if (nextHigh !== highScore) {
       setHighScore(nextHigh);
       writeHighScore(nextHigh);
+    }
+  };
+
+  const showShareToast = (message: string) => {
+    setShareToast(message);
+    if (shareToastTimerRef.current) {
+      window.clearTimeout(shareToastTimerRef.current);
+    }
+    shareToastTimerRef.current = window.setTimeout(() => {
+      setShareToast(null);
+    }, 2000);
+  };
+
+  const handleShare = async () => {
+    const shareScore = finalScore || scoreRef.current;
+    const shareUrl = new URL(window.location.href);
+    shareUrl.searchParams.set('s', String(shareScore));
+    const title = 'Dubai Cookie Dash';
+    const text = `Dubai Cookie Dash에서 ${shareScore}점! 너 이길 수 있어?`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title,
+          text,
+          url: shareUrl.toString()
+        });
+        return;
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(`${text}\n${shareUrl.toString()}`);
+      showShareToast('복사 완료');
+    } catch (error) {
+      showShareToast('복사에 실패했어요');
     }
   };
 
@@ -112,6 +161,24 @@ export default function GameCanvas() {
   useEffect(() => {
     setHighScore(readHighScore());
   }, []);
+
+  useEffect(() => {
+    const rawScore = searchParams.get('s');
+    if (!rawScore) {
+      setFriendScore(null);
+      setIsFriendScoreDismissed(false);
+      return;
+    }
+    const parsedScore = Number.parseInt(rawScore, 10);
+    const maxScore = 999999;
+    if (Number.isNaN(parsedScore) || parsedScore < 0 || parsedScore > maxScore) {
+      setFriendScore(null);
+      setIsFriendScoreDismissed(false);
+      return;
+    }
+    setFriendScore(parsedScore);
+    setIsFriendScoreDismissed(false);
+  }, [searchParams]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 767px)');
@@ -299,6 +366,9 @@ export default function GameCanvas() {
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
       }
+      if (shareToastTimerRef.current) {
+        window.clearTimeout(shareToastTimerRef.current);
+      }
     };
   }, [highScore]);
 
@@ -348,12 +418,32 @@ export default function GameCanvas() {
             type="button"
             className="hud-button"
             onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              handleShare();
+            }}
           >
             Share
           </button>
         </div>
       </div>
+      {friendScore !== null && !isFriendScoreDismissed ? (
+        <div className="friend-score-banner" role="status" aria-live="polite">
+          <span>친구 점수: {friendScore} — 이겨보세요!</span>
+          <button
+            type="button"
+            className="friend-score-dismiss"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              setIsFriendScoreDismissed(true);
+            }}
+            aria-label="닫기"
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
       <canvas
         ref={canvasRef}
         className="game-canvas"
@@ -366,16 +456,30 @@ export default function GameCanvas() {
             <h2>Game Over</h2>
             <p>Score: {score}</p>
             <p>High Score: {highScore}</p>
-            <button
-              type="button"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                restartGame();
-              }}
-            >
-              Restart
-            </button>
+            <div className="overlay-actions">
+              <button
+                type="button"
+                className="overlay-button overlay-button--primary"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  restartGame();
+                }}
+              >
+                Restart
+              </button>
+              <button
+                type="button"
+                className="overlay-button overlay-button--secondary"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleShare();
+                }}
+              >
+                Share
+              </button>
+            </div>
             <span className="hint">Press Enter or tap to restart</span>
           </div>
         </div>
@@ -398,6 +502,7 @@ export default function GameCanvas() {
           </div>
         </div>
       ) : null}
+      {shareToast ? <div className="share-toast">{shareToast}</div> : null}
     </div>
   );
 }
