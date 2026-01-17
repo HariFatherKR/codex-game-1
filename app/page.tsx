@@ -4,7 +4,7 @@ export default function HomePage() {
   return (
     <main className="page">
       <header className="hero">
-        <div>
+        <div className="hero-text">
           <p className="eyebrow">8-bit Arcade Runner</p>
           <h1>Dubai Cookie Dash</h1>
           <p className="subtitle">
@@ -21,7 +21,11 @@ export default function HomePage() {
         </div>
       </header>
       <section className="game-section">
-        <GameCanvas />
+        <div className="game-viewport">
+          <div className="game-viewport-inner">
+            <GameCanvas />
+          </div>
+        </div>
       </section>
       <footer className="footer">
         <p>Next.js App Router + Vercel ready.</p>
