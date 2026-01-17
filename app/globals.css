@@ -3,6 +3,10 @@
   font-family: var(--font-pixel), 'Press Start 2P', system-ui, sans-serif;
   background: #05070f;
   color: #f8f9fa;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
 }
 
 * {
@@ -12,22 +16,23 @@
 body {
   margin: 0;
   background: radial-gradient(circle at top, #111827 0%, #05070f 65%);
-  min-height: 100vh;
+  min-height: 100svh;
 }
 
 .page {
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 40px 24px 64px;
+  padding: 24px 20px 48px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
+  min-height: 100svh;
 }
 
 .hero {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 @media (min-width: 900px) {
@@ -38,6 +43,12 @@ body {
   }
 }
 
+.hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.2em;
@@ -46,8 +57,8 @@ body {
   margin: 0;
 }
 
-h1 {
-  margin: 8px 0;
+.hero-title {
+  margin: 4px 0;
   font-size: clamp(2rem, 3vw, 3rem);
 }
 
@@ -76,22 +87,56 @@ h1 {
   color: #e2e8f0;
 }
 
-.game-section {
-  border-radius: 18px;
-  background: #0b0f24;
-  padding: 16px;
-  border: 2px solid #1e293b;
+.game-stage {
+  position: relative;
+  border-radius: 20px;
+  background: #030712;
+  padding: 18px;
+  border: 2px solid #0f172a;
+  box-shadow: 0 0 40px rgba(15, 23, 42, 0.8);
+  overflow: hidden;
+  min-height: 60svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.15), transparent 45%),
+    radial-gradient(circle at bottom right, rgba(244, 114, 182, 0.12), transparent 40%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.05) 1px,
+      rgba(0, 0, 0, 0) 4px,
+      rgba(0, 0, 0, 0) 6px
+    );
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.game-viewport {
+  position: relative;
+  width: min(100vw, calc(100svh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  max-width: 100%;
+  z-index: 1;
 }
 
 .game-shell {
   position: relative;
   border-radius: 14px;
   overflow: hidden;
-  height: min(68vh, 560px);
-  min-height: 380px;
+  height: 100%;
+  width: 100%;
   outline: none;
   border: 3px solid #111827;
   box-shadow: 0 0 0 4px #0f172a, 0 0 30px rgba(76, 201, 240, 0.25);
+  touch-action: manipulation;
 }
 
 .game-canvas {
@@ -102,8 +147,8 @@ h1 {
 
 .hud {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: calc(12px + var(--safe-top));
+  left: calc(12px + var(--safe-left));
   display: flex;
   gap: 12px;
   z-index: 2;
@@ -145,6 +190,7 @@ h1 {
   padding: 24px 32px;
   border-radius: 12px;
   border: 2px solid #1d4ed8;
+  max-width: min(90%, 420px);
 }
 
 .overlay-panel h2 {
@@ -178,8 +224,90 @@ h1 {
   color: #94a3b8;
 }
 
+.game-controls {
+  position: absolute;
+  top: calc(12px + var(--safe-top));
+  right: calc(12px + var(--safe-right));
+  display: flex;
+  gap: 8px;
+  z-index: 3;
+}
+
+.control-button {
+  border: 1px solid #1e40af;
+  background: rgba(15, 23, 42, 0.85);
+  color: #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.control-button[aria-pressed='true'] {
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.share-status {
+  position: absolute;
+  right: calc(12px + var(--safe-right));
+  top: calc(56px + var(--safe-top));
+  background: rgba(15, 23, 42, 0.9);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: #bae6fd;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  z-index: 3;
+}
+
 .footer {
   text-align: center;
   color: #94a3b8;
   font-size: 0.9rem;
+}
+
+@media (max-width: 767px) {
+  .page {
+    padding: 16px 14px 24px;
+    gap: 16px;
+  }
+
+  .hero-card {
+    display: none;
+  }
+
+  .hero-title {
+    font-size: clamp(1.4rem, 6vw, 2rem);
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+  }
+
+  .game-stage {
+    padding: 12px;
+    min-height: 70svh;
+  }
+
+  .hud {
+    gap: 8px;
+  }
+
+  .hud-block {
+    padding: 6px 8px;
+  }
+
+  .hud-label {
+    font-size: 9px;
+  }
+
+  .hud-value {
+    font-size: 12px;
+  }
+
+  .control-button {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
 }

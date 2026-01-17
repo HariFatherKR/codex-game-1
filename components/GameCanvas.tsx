@@ -50,6 +50,9 @@ export default function GameCanvas() {
   const [highScore, setHighScore] = useState(0);
   const [speedDisplay, setSpeedDisplay] = useState<number>(Math.round(speedRef.current));
   const [status, setStatus] = useState<GameStatus>('READY');
+  const [isMuted, setIsMuted] = useState(false);
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const shareTimeoutRef = useRef<number | null>(null);
 
   const resetGame = (canvas: HTMLCanvasElement) => {
     const groundY = getGroundY(canvas.height);
@@ -102,6 +105,11 @@ export default function GameCanvas() {
     if (statusRef.current === 'GAME_OVER') {
       restartGame();
     }
+    if (statusRef.current === 'PAUSED') {
+      statusRef.current = 'RUNNING';
+      setStatus('RUNNING');
+      lastTimeRef.current = performance.now();
+    }
     if (statusRef.current !== 'RUNNING') {
       return;
     }
@@ -111,6 +119,54 @@ export default function GameCanvas() {
     }
     jumpPlayer(player);
   };
+
+  const togglePause = () => {
+    if (statusRef.current === 'RUNNING') {
+      statusRef.current = 'PAUSED';
+      setStatus('PAUSED');
+      return;
+    }
+    if (statusRef.current === 'PAUSED') {
+      statusRef.current = 'RUNNING';
+      setStatus('RUNNING');
+      lastTimeRef.current = performance.now();
+    }
+  };
+
+  const handleShare = async () => {
+    const shareData = {
+      title: 'Dubai Cookie Dash',
+      text: '내 점수 이겼으면 인증해 😎 Dubai Cookie Dash',
+      url: window.location.href
+    };
+
+    if (shareTimeoutRef.current) {
+      window.clearTimeout(shareTimeoutRef.current);
+    }
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        setShareStatus('공유 완료!');
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareData.url);
+        setShareStatus('링크를 복사했어요.');
+      } else {
+        setShareStatus('공유 기능을 사용할 수 없어요.');
+      }
+    } catch (error) {
+      if ((error as DOMException).name !== 'AbortError') {
+        setShareStatus('공유에 실패했어요.');
+      }
+    }
+
+    shareTimeoutRef.current = window.setTimeout(() => {
+      setShareStatus(null);
+    }, 2000);
+  };
+
+  const shouldIgnorePointer = (target: EventTarget | null) =>
+    target instanceof Element && target.closest('[data-ui="true"]');
 
   useEffect(() => {
     setHighScore(readHighScore());
@@ -156,6 +212,9 @@ export default function GameCanvas() {
         } else if (statusRef.current !== 'RUNNING') {
           startGame();
         }
+      }
+      if (event.code === 'KeyP') {
+        togglePause();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -254,7 +313,10 @@ export default function GameCanvas() {
         });
 
         if (statusRef.current === 'READY') {
-          drawOverlay('Press Space to Start', canvas, context);
+          drawOverlay('Tap to Jump', canvas, context);
+        }
+        if (statusRef.current === 'PAUSED') {
+          drawOverlay('Paused', canvas, context);
         }
         if (statusRef.current === 'GAME_OVER') {
           drawOverlay('Game Over', canvas, context);
@@ -282,6 +344,9 @@ export default function GameCanvas() {
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
       }
+      if (shareTimeoutRef.current) {
+        window.clearTimeout(shareTimeoutRef.current);
+      }
     };
   }, [highScore]);
 
@@ -290,7 +355,12 @@ export default function GameCanvas() {
       className="game-shell"
       role="button"
       tabIndex={0}
-      onPointerDown={handleJump}
+      onPointerDown={(event) => {
+        if (shouldIgnorePointer(event.target)) {
+          return;
+        }
+        handleJump();
+      }}
       onKeyDown={(event) => {
         if (event.key === ' ') {
           event.preventDefault();
@@ -298,6 +368,30 @@ export default function GameCanvas() {
         }
       }}
     >
+      <div className="game-controls" data-ui="true">
+        <button type="button" className="control-button" onPointerDown={(event) => event.stopPropagation()} onClick={handleShare}>
+          Share
+        </button>
+        <button
+          type="button"
+          className="control-button"
+          aria-pressed={isMuted}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={() => setIsMuted((prev) => !prev)}
+        >
+          {isMuted ? 'Sound Off' : 'Sound On'}
+        </button>
+        <button
+          type="button"
+          className="control-button"
+          aria-pressed={status === 'PAUSED'}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={togglePause}
+        >
+          {status === 'PAUSED' ? 'Resume' : 'Pause'}
+        </button>
+      </div>
+      {shareStatus ? <div className="share-status" data-ui="true">{shareStatus}</div> : null}
       <div className="hud">
         <div className="hud-block">
           <span className="hud-label">Score</span>
@@ -314,8 +408,8 @@ export default function GameCanvas() {
       </div>
       <canvas ref={canvasRef} className="game-canvas" width={GAME_WIDTH} height={GAME_HEIGHT} />
       {status === 'GAME_OVER' ? (
-        <div className="overlay">
-          <div className="overlay-panel">
+        <div className="overlay" data-ui="true">
+          <div className="overlay-panel" data-ui="true">
             <h2>Game Over</h2>
             <p>Score: {score}</p>
             <p>High Score: {highScore}</p>
@@ -327,12 +421,24 @@ export default function GameCanvas() {
         </div>
       ) : null}
       {status === 'READY' ? (
-        <div className="overlay">
-          <div className="overlay-panel">
+        <div className="overlay" data-ui="true">
+          <div className="overlay-panel" data-ui="true">
             <h2>Dubai Cookie Dash</h2>
-            <p>Tap or press Space to jump.</p>
+            <p>Tap to Jump</p>
             <button type="button" onClick={startGame}>
               Start
+            </button>
+            <span className="hint">Tap anywhere to jump. Press P to pause.</span>
+          </div>
+        </div>
+      ) : null}
+      {status === 'PAUSED' ? (
+        <div className="overlay" data-ui="true">
+          <div className="overlay-panel" data-ui="true">
+            <h2>Paused</h2>
+            <p>잠시 멈췄어요.</p>
+            <button type="button" onClick={togglePause}>
+              Resume
             </button>
           </div>
         </div>
