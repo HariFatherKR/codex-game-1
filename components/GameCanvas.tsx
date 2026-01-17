@@ -1,14 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import {
-  COIN_MAX_GAP,
-  COIN_MIN_GAP,
-  GAME_HEIGHT,
-  GAME_WIDTH,
-  OBSTACLE_MAX_GAP,
-  OBSTACLE_MIN_GAP
-} from '@/lib/game/constants';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createGameConfig } from '@/lib/game/constants';
 import {
   checkCoinCollision,
   checkRectCollision,
@@ -24,7 +17,7 @@ import {
   resetSpeed,
   updatePlayer
 } from '@/lib/game/engine';
-import type { Coin, GameStatus, Obstacle, Player } from '@/lib/game/types';
+import type { Coin, GameConfig, GameStatus, Obstacle, Player } from '@/lib/game/types';
 import { readHighScore, writeHighScore } from '@/lib/game/storage';
 
 const randomRange = (min: number, max: number): number => min + Math.random() * (max - min);
@@ -36,30 +29,34 @@ export default function GameCanvas() {
   const playerRef = useRef<Player | null>(null);
   const coinsRef = useRef<Coin[]>([]);
   const obstaclesRef = useRef<Obstacle[]>([]);
-  const speedRef = useRef<number>(resetSpeed());
+  const speedRef = useRef<number>(0);
   const scoreRef = useRef<number>(0);
   const statusRef = useRef<GameStatus>('READY');
-  const coinTimerRef = useRef<number>(randomRange(COIN_MIN_GAP, COIN_MAX_GAP));
-  const obstacleTimerRef = useRef<number>(randomRange(OBSTACLE_MIN_GAP, OBSTACLE_MAX_GAP));
+  const coinTimerRef = useRef<number>(0);
+  const obstacleTimerRef = useRef<number>(0);
   const hudTimerRef = useRef<number>(0);
   const lastObstacleTypeRef = useRef<Obstacle['type'] | null>(null);
   const backgroundOffsetRef = useRef<number>(0);
   const animationTimeRef = useRef<number>(0);
+  const configRef = useRef<GameConfig>(createGameConfig(false));
 
+  const [isMobile, setIsMobile] = useState(false);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
-  const [speedDisplay, setSpeedDisplay] = useState<number>(Math.round(speedRef.current));
+  const [speedDisplay, setSpeedDisplay] = useState<number>(0);
   const [status, setStatus] = useState<GameStatus>('READY');
 
-  const resetGame = (canvas: HTMLCanvasElement) => {
-    const groundY = getGroundY(canvas.height);
-    playerRef.current = createPlayer(groundY);
+  const config = useMemo(() => createGameConfig(isMobile), [isMobile]);
+
+  const resetGame = (canvas: HTMLCanvasElement, nextConfig: GameConfig) => {
+    const groundY = getGroundY(canvas.height, nextConfig);
+    playerRef.current = createPlayer(groundY, nextConfig);
     coinsRef.current = [];
     obstaclesRef.current = [];
-    speedRef.current = resetSpeed();
+    speedRef.current = resetSpeed(nextConfig);
     scoreRef.current = 0;
-    coinTimerRef.current = randomRange(COIN_MIN_GAP, COIN_MAX_GAP);
-    obstacleTimerRef.current = randomRange(OBSTACLE_MIN_GAP, OBSTACLE_MAX_GAP);
+    coinTimerRef.current = randomRange(nextConfig.coin.minGap, nextConfig.coin.maxGap);
+    obstacleTimerRef.current = randomRange(nextConfig.obstacle.minGap, nextConfig.obstacle.maxGap);
     lastObstacleTypeRef.current = null;
     backgroundOffsetRef.current = 0;
     animationTimeRef.current = 0;
@@ -80,7 +77,7 @@ export default function GameCanvas() {
     if (!canvas) {
       return;
     }
-    resetGame(canvas);
+    resetGame(canvas, configRef.current);
     statusRef.current = 'RUNNING';
     setStatus('RUNNING');
   };
@@ -109,12 +106,34 @@ export default function GameCanvas() {
     if (!player) {
       return;
     }
-    jumpPlayer(player);
+    jumpPlayer(player, configRef.current);
   };
 
   useEffect(() => {
     setHighScore(readHighScore());
   }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const updateMatch = () => {
+      setIsMobile(mediaQuery.matches);
+    };
+    updateMatch();
+    mediaQuery.addEventListener('change', updateMatch);
+    return () => {
+      mediaQuery.removeEventListener('change', updateMatch);
+    };
+  }, []);
+
+  useEffect(() => {
+    configRef.current = config;
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.width = config.baseWidth;
+      canvas.height = config.baseHeight;
+      resetGame(canvas, config);
+    }
+  }, [config]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -127,17 +146,13 @@ export default function GameCanvas() {
     }
 
     const resizeCanvas = () => {
-      const parent = canvas.parentElement;
-      if (!parent) {
-        return;
-      }
-      const { width, height } = parent.getBoundingClientRect();
-      canvas.width = width;
-      canvas.height = height;
+      const activeConfig = configRef.current;
+      canvas.width = activeConfig.baseWidth;
+      canvas.height = activeConfig.baseHeight;
       if (!playerRef.current) {
-        resetGame(canvas);
+        resetGame(canvas, activeConfig);
       } else {
-        const groundY = getGroundY(canvas.height);
+        const groundY = getGroundY(canvas.height, activeConfig);
         playerRef.current.y = groundY - playerRef.current.height;
       }
     };
@@ -166,33 +181,35 @@ export default function GameCanvas() {
 
       if (statusRef.current === 'RUNNING' && playerRef.current) {
         const player = playerRef.current;
-        const groundY = getGroundY(canvas.height);
-        updatePlayer(player, delta, groundY);
+        const activeConfig = configRef.current;
+        const groundY = getGroundY(canvas.height, activeConfig);
+        updatePlayer(player, delta, groundY, activeConfig);
 
-        speedRef.current = increaseSpeed(speedRef.current, delta);
+        speedRef.current = increaseSpeed(speedRef.current, delta, activeConfig);
         animationTimeRef.current += delta;
         backgroundOffsetRef.current += speedRef.current * delta * 24;
         coinTimerRef.current -= delta;
         obstacleTimerRef.current -= delta;
 
         if (coinTimerRef.current <= 0) {
-          coinsRef.current.push(createCoin(canvas.width, groundY));
-          coinTimerRef.current = randomRange(COIN_MIN_GAP, COIN_MAX_GAP);
+          coinsRef.current.push(createCoin(canvas.width, groundY, activeConfig));
+          coinTimerRef.current = randomRange(activeConfig.coin.minGap, activeConfig.coin.maxGap);
         }
         if (obstacleTimerRef.current <= 0) {
           const lastObstacle = obstaclesRef.current[obstaclesRef.current.length - 1];
-          const minDistance = 180;
+          const minDistance = activeConfig.obstacle.minDistance;
           if (!lastObstacle || lastObstacle.x < canvas.width - minDistance) {
             const nextObstacle = createObstacle(
               canvas.width,
               groundY,
-              lastObstacleTypeRef.current
+              lastObstacleTypeRef.current,
+              activeConfig
             );
             obstaclesRef.current.push(nextObstacle);
             lastObstacleTypeRef.current = nextObstacle.type;
           }
-          const minGap = Math.max(0.9, OBSTACLE_MIN_GAP - speedRef.current * 0.02);
-          const maxGap = Math.max(1.4, OBSTACLE_MAX_GAP - speedRef.current * 0.02);
+          const minGap = Math.max(0.9, activeConfig.obstacle.minGap - speedRef.current * 0.02);
+          const maxGap = Math.max(1.4, activeConfig.obstacle.maxGap - speedRef.current * 0.02);
           obstacleTimerRef.current = randomRange(minGap, maxGap);
         }
 
@@ -205,7 +222,7 @@ export default function GameCanvas() {
         coinsRef.current.forEach((coin) => {
           if (!coin.collected && checkCoinCollision(player, coin)) {
             coin.collected = true;
-            scoreRef.current += getScoreForCoin();
+            scoreRef.current += getScoreForCoin(activeConfig);
             setScore(scoreRef.current);
           }
         });
@@ -226,7 +243,7 @@ export default function GameCanvas() {
 
       const render = () => {
         context.clearRect(0, 0, canvas.width, canvas.height);
-        const groundY = getGroundY(canvas.height);
+        const groundY = getGroundY(canvas.height, configRef.current);
 
         context.imageSmoothingEnabled = false;
         drawBackground(context, canvas.width, canvas.height, groundY, backgroundOffsetRef.current);
@@ -288,7 +305,8 @@ export default function GameCanvas() {
   return (
     <div
       className="game-shell"
-      role="button"
+      data-mode={isMobile ? 'mobile' : 'desktop'}
+      role="application"
       tabIndex={0}
       onPointerDown={handleJump}
       onKeyDown={(event) => {
@@ -298,28 +316,64 @@ export default function GameCanvas() {
         }
       }}
     >
-      <div className="hud">
-        <div className="hud-block">
-          <span className="hud-label">Score</span>
-          <span className="hud-value">{score}</span>
+      <div className="hud-layer">
+        <div className="hud-row hud-top-left">
+          <div className="hud-block">
+            <span className="hud-label">Score</span>
+            <span className="hud-value">{score}</span>
+          </div>
         </div>
-        <div className="hud-block">
-          <span className="hud-label">High</span>
-          <span className="hud-value">{highScore}</span>
+        <div className="hud-row hud-top-right">
+          <div className="hud-block hud-block--mini">
+            <span className="hud-label">High</span>
+            <span className="hud-value">{highScore}</span>
+          </div>
+          <div className="hud-block hud-block--mini">
+            <span className="hud-label">Speed</span>
+            <span className="hud-value">{speedDisplay}</span>
+          </div>
         </div>
-        <div className="hud-block">
-          <span className="hud-label">Speed</span>
-          <span className="hud-value">{speedDisplay}</span>
+        <div className="hud-row hud-bottom-left">
+          <button
+            type="button"
+            className="hud-button"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+          >
+            Sound
+          </button>
+        </div>
+        <div className="hud-row hud-bottom-right">
+          <button
+            type="button"
+            className="hud-button"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+          >
+            Share
+          </button>
         </div>
       </div>
-      <canvas ref={canvasRef} className="game-canvas" width={GAME_WIDTH} height={GAME_HEIGHT} />
+      <canvas
+        ref={canvasRef}
+        className="game-canvas"
+        width={config.baseWidth}
+        height={config.baseHeight}
+      />
       {status === 'GAME_OVER' ? (
         <div className="overlay">
           <div className="overlay-panel">
             <h2>Game Over</h2>
             <p>Score: {score}</p>
             <p>High Score: {highScore}</p>
-            <button type="button" onClick={restartGame}>
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                restartGame();
+              }}
+            >
               Restart
             </button>
             <span className="hint">Press Enter or tap to restart</span>
@@ -331,7 +385,14 @@ export default function GameCanvas() {
           <div className="overlay-panel">
             <h2>Dubai Cookie Dash</h2>
             <p>Tap or press Space to jump.</p>
-            <button type="button" onClick={startGame}>
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                startGame();
+              }}
+            >
               Start
             </button>
           </div>

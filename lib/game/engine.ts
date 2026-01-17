@@ -1,44 +1,34 @@
-import {
-  BASE_SPEED,
-  COIN_SIZE,
-  COIN_SCORE,
-  BIKE_OBSTACLE,
-  CAR_OBSTACLE,
-  GROUND_HEIGHT,
-  GRAVITY,
-  JUMP_FORCE,
-  MAX_SPEED,
-  PLAYER_HEIGHT,
-  PLAYER_WIDTH,
-  SCOOTER_OBSTACLE,
-  PLAYER_X,
-  SPEED_RAMP
-} from './constants';
-import type { Coin, GameSnapshot, Obstacle, Player } from './types';
+import type { Coin, GameConfig, GameSnapshot, Obstacle, Player } from './types';
 
 let objectId = 0;
 
-export const createPlayer = (groundY: number): Player => ({
-  x: PLAYER_X,
-  y: groundY - PLAYER_HEIGHT,
-  width: PLAYER_WIDTH,
-  height: PLAYER_HEIGHT,
+export const createPlayer = (groundY: number, config: GameConfig): Player => ({
+  x: config.player.x,
+  y: groundY - config.player.height,
+  width: config.player.width,
+  height: config.player.height,
   velocityY: 0,
   isGrounded: true
 });
 
-export const getGroundY = (height: number): number => height - GROUND_HEIGHT;
+export const getGroundY = (height: number, config: GameConfig): number =>
+  height - config.groundHeight;
 
-export const jumpPlayer = (player: Player): void => {
+export const jumpPlayer = (player: Player, config: GameConfig): void => {
   if (!player.isGrounded) {
     return;
   }
-  player.velocityY = -JUMP_FORCE;
+  player.velocityY = -config.physics.jumpForce;
   player.isGrounded = false;
 };
 
-export const updatePlayer = (player: Player, deltaSeconds: number, groundY: number): void => {
-  player.velocityY += GRAVITY * deltaSeconds;
+export const updatePlayer = (
+  player: Player,
+  deltaSeconds: number,
+  groundY: number,
+  config: GameConfig
+): void => {
+  player.velocityY += config.physics.gravity * deltaSeconds;
   player.y += player.velocityY * deltaSeconds;
 
   if (player.y + player.height >= groundY) {
@@ -48,18 +38,19 @@ export const updatePlayer = (player: Player, deltaSeconds: number, groundY: numb
   }
 };
 
-export const increaseSpeed = (speed: number, deltaSeconds: number): number => {
-  const next = speed + SPEED_RAMP * deltaSeconds;
-  return Math.min(next, MAX_SPEED);
+export const increaseSpeed = (speed: number, deltaSeconds: number, config: GameConfig): number => {
+  const next = speed + config.speed.ramp * deltaSeconds;
+  return Math.min(next, config.speed.max);
 };
 
-export const createCoin = (canvasWidth: number, groundY: number): Coin => {
-  const lift = Math.random() > 0.5 ? 110 : 60;
+export const createCoin = (canvasWidth: number, groundY: number, config: GameConfig): Coin => {
+  const options = config.coin.liftOptions;
+  const lift = options[Math.floor(Math.random() * options.length)] ?? options[0] ?? 80;
   return {
     id: objectId++,
     x: canvasWidth + 40,
     y: groundY - lift,
-    size: COIN_SIZE,
+    size: config.coin.size,
     shimmerOffset: Math.random() * 2 * Math.PI,
     collected: false
   };
@@ -68,7 +59,8 @@ export const createCoin = (canvasWidth: number, groundY: number): Coin => {
 export const createObstacle = (
   canvasWidth: number,
   groundY: number,
-  lastType: Obstacle['type'] | null
+  lastType: Obstacle['type'] | null,
+  config: GameConfig
 ): Obstacle => {
   const options: Array<{ type: Obstacle['type']; weight: number }> = [
     { type: 'BIKE', weight: 0.38 },
@@ -91,12 +83,7 @@ export const createObstacle = (
     }
   }
 
-  const obstacleLookup = {
-    BIKE: BIKE_OBSTACLE,
-    CAR: CAR_OBSTACLE,
-    SCOOTER: SCOOTER_OBSTACLE
-  } as const;
-  const obstacle = obstacleLookup[selection];
+  const obstacle = config.obstacle.sizes[selection];
 
   return {
     id: objectId++,
@@ -146,6 +133,6 @@ export const getSnapshot = (score: number, speed: number, status: GameSnapshot['
   status
 });
 
-export const getScoreForCoin = (): number => COIN_SCORE;
+export const getScoreForCoin = (config: GameConfig): number => config.coin.score;
 
-export const resetSpeed = (): number => BASE_SPEED;
+export const resetSpeed = (config: GameConfig): number => config.speed.base;
