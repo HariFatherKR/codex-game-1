@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createGameConfig } from '@/lib/game/constants';
 import {
   checkCoinCollision,
@@ -42,9 +43,15 @@ export default function GameCanvas() {
 
   const [isMobile, setIsMobile] = useState(false);
   const [score, setScore] = useState(0);
+  const [finalScore, setFinalScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [speedDisplay, setSpeedDisplay] = useState<number>(0);
   const [status, setStatus] = useState<GameStatus>('READY');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [friendScore, setFriendScore] = useState<number | null>(null);
+  const [isFriendScoreVisible, setIsFriendScoreVisible] = useState(false);
+  const toastTimerRef = useRef<number | null>(null);
+  const searchParams = useSearchParams();
 
   const config = useMemo(() => createGameConfig(isMobile), [isMobile]);
 
@@ -61,6 +68,7 @@ export default function GameCanvas() {
     backgroundOffsetRef.current = 0;
     animationTimeRef.current = 0;
     setScore(0);
+    setFinalScore(0);
     setSpeedDisplay(Math.round(speedRef.current));
   };
 
@@ -85,11 +93,54 @@ export default function GameCanvas() {
   const triggerGameOver = () => {
     statusRef.current = 'GAME_OVER';
     setStatus('GAME_OVER');
+    setFinalScore(scoreRef.current);
     const nextHigh = Math.max(scoreRef.current, highScore);
     if (nextHigh !== highScore) {
       setHighScore(nextHigh);
       writeHighScore(nextHigh);
     }
+  };
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastMessage(null);
+    }, 2000);
+  };
+
+  const handleShare = async () => {
+    const shareUrl = new URL(window.location.href);
+    shareUrl.searchParams.set('s', String(finalScore));
+    const shareText = `Dubai Cookie Dash에서 ${finalScore}점! 너 이길 수 있어?`;
+    const shareData = {
+      title: 'Dubai Cookie Dash',
+      text: shareText,
+      url: shareUrl.toString()
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (error) {
+        // fall through to clipboard
+      }
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`${shareText}\n${shareUrl.toString()}`);
+        showToast('복사 완료');
+        return;
+      }
+    } catch (error) {
+      // ignore
+    }
+
+    showToast('복사 실패');
   };
 
   const handleJump = () => {
@@ -112,6 +163,25 @@ export default function GameCanvas() {
   useEffect(() => {
     setHighScore(readHighScore());
   }, []);
+
+  useEffect(() => {
+    const rawScore = searchParams.get('s');
+    if (!rawScore) {
+      setFriendScore(null);
+      setIsFriendScoreVisible(false);
+      return;
+    }
+    const parsedScore = Number(rawScore);
+    const isValidScore =
+      Number.isInteger(parsedScore) && parsedScore >= 0 && parsedScore <= 999999;
+    if (!isValidScore) {
+      setFriendScore(null);
+      setIsFriendScoreVisible(false);
+      return;
+    }
+    setFriendScore(parsedScore);
+    setIsFriendScoreVisible(true);
+  }, [searchParams]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 767px)');
@@ -299,6 +369,9 @@ export default function GameCanvas() {
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
       }
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
     };
   }, [highScore]);
 
@@ -317,6 +390,23 @@ export default function GameCanvas() {
       }}
     >
       <div className="hud-layer">
+        {isFriendScoreVisible && friendScore !== null ? (
+          <div className="friend-score-banner" role="status">
+            <span>친구 점수: {friendScore} — 이겨보세요!</span>
+            <button
+              type="button"
+              className="friend-score-close"
+              aria-label="친구 점수 배너 닫기"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                setIsFriendScoreVisible(false);
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        ) : null}
         <div className="hud-row hud-top-left">
           <div className="hud-block">
             <span className="hud-label">Score</span>
@@ -343,16 +433,6 @@ export default function GameCanvas() {
             Sound
           </button>
         </div>
-        <div className="hud-row hud-bottom-right">
-          <button
-            type="button"
-            className="hud-button"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => event.stopPropagation()}
-          >
-            Share
-          </button>
-        </div>
       </div>
       <canvas
         ref={canvasRef}
@@ -364,18 +444,32 @@ export default function GameCanvas() {
         <div className="overlay">
           <div className="overlay-panel">
             <h2>Game Over</h2>
-            <p>Score: {score}</p>
+            <p>Score: {finalScore}</p>
             <p>High Score: {highScore}</p>
-            <button
-              type="button"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                restartGame();
-              }}
-            >
-              Restart
-            </button>
+            <div className="overlay-actions">
+              <button
+                type="button"
+                className="overlay-button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  restartGame();
+                }}
+              >
+                Restart
+              </button>
+              <button
+                type="button"
+                className="overlay-button overlay-button--secondary"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handleShare();
+                }}
+              >
+                Share
+              </button>
+            </div>
             <span className="hint">Press Enter or tap to restart</span>
           </div>
         </div>
@@ -396,6 +490,11 @@ export default function GameCanvas() {
               Start
             </button>
           </div>
+        </div>
+      ) : null}
+      {toastMessage ? (
+        <div className="toast" role="status">
+          {toastMessage}
         </div>
       ) : null}
     </div>

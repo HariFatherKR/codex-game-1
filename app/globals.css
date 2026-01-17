@@ -65,6 +65,33 @@ body {
   pointer-events: none;
 }
 
+.friend-score-banner {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.92);
+  border: 2px solid #f59e0b;
+  padding: 10px 16px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #fde68a;
+  pointer-events: auto;
+  max-width: calc(100% - 32px);
+}
+
+.friend-score-close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px;
+}
+
 .hud-row {
   position: absolute;
   display: flex;
@@ -159,6 +186,7 @@ body {
   padding: 24px 32px;
   border-radius: 12px;
   border: 2px solid #1d4ed8;
+  max-width: min(90vw, 360px);
 }
 
 .overlay-panel h2 {
@@ -170,9 +198,16 @@ body {
   color: #c7d2fe;
 }
 
-.overlay-panel button {
+.overlay-actions {
   margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.overlay-button {
   padding: 12px 20px;
+  min-height: 44px;
   border-radius: 8px;
   border: 2px solid #f72585;
   background: #1f2937;
@@ -181,8 +216,17 @@ body {
   cursor: pointer;
 }
 
-.overlay-panel button:hover {
+.overlay-button:hover {
   background: #1f1b3a;
+}
+
+.overlay-button--secondary {
+  border-color: #38bdf8;
+  background: #0f172a;
+}
+
+.overlay-button--secondary:hover {
+  background: #111827;
 }
 
 .hint {
@@ -190,4 +234,18 @@ body {
   margin-top: 12px;
   font-size: 12px;
   color: #94a3b8;
+}
+
+.toast {
+  position: absolute;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.9);
+  border: 2px solid #38bdf8;
+  color: #f8fafc;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 12px;
+  z-index: 4;
 }
