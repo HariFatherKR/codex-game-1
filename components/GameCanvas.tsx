@@ -1,14 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import {
-  COIN_MAX_GAP,
-  COIN_MIN_GAP,
-  GAME_HEIGHT,
-  GAME_WIDTH,
-  OBSTACLE_MAX_GAP,
-  OBSTACLE_MIN_GAP
-} from '@/lib/game/constants';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { GAME_CONFIGS, type GameConfig, type GameMode } from '@/lib/game/constants';
 import {
   checkCoinCollision,
   checkRectCollision,
@@ -39,12 +32,18 @@ export default function GameCanvas() {
   const speedRef = useRef<number>(resetSpeed());
   const scoreRef = useRef<number>(0);
   const statusRef = useRef<GameStatus>('READY');
-  const coinTimerRef = useRef<number>(randomRange(COIN_MIN_GAP, COIN_MAX_GAP));
-  const obstacleTimerRef = useRef<number>(randomRange(OBSTACLE_MIN_GAP, OBSTACLE_MAX_GAP));
+  const coinTimerRef = useRef<number>(
+    randomRange(GAME_CONFIGS.desktop.coinMinGap, GAME_CONFIGS.desktop.coinMaxGap)
+  );
+  const obstacleTimerRef = useRef<number>(
+    randomRange(GAME_CONFIGS.desktop.obstacleMinGap, GAME_CONFIGS.desktop.obstacleMaxGap)
+  );
   const hudTimerRef = useRef<number>(0);
   const lastObstacleTypeRef = useRef<Obstacle['type'] | null>(null);
   const backgroundOffsetRef = useRef<number>(0);
   const animationTimeRef = useRef<number>(0);
+  const modeRef = useRef<GameMode>('desktop');
+  const configRef = useRef<GameConfig>(GAME_CONFIGS.desktop);
 
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
@@ -53,13 +52,19 @@ export default function GameCanvas() {
 
   const resetGame = (canvas: HTMLCanvasElement) => {
     const groundY = getGroundY(canvas.height);
-    playerRef.current = createPlayer(groundY);
+    playerRef.current = createPlayer(groundY, configRef.current);
     coinsRef.current = [];
     obstaclesRef.current = [];
     speedRef.current = resetSpeed();
     scoreRef.current = 0;
-    coinTimerRef.current = randomRange(COIN_MIN_GAP, COIN_MAX_GAP);
-    obstacleTimerRef.current = randomRange(OBSTACLE_MIN_GAP, OBSTACLE_MAX_GAP);
+    coinTimerRef.current = randomRange(
+      configRef.current.coinMinGap,
+      configRef.current.coinMaxGap
+    );
+    obstacleTimerRef.current = randomRange(
+      configRef.current.obstacleMinGap,
+      configRef.current.obstacleMaxGap
+    );
     lastObstacleTypeRef.current = null;
     backgroundOffsetRef.current = 0;
     animationTimeRef.current = 0;
@@ -109,7 +114,7 @@ export default function GameCanvas() {
     if (!player) {
       return;
     }
-    jumpPlayer(player);
+    jumpPlayer(player, configRef.current);
   };
 
   useEffect(() => {
@@ -132,13 +137,25 @@ export default function GameCanvas() {
         return;
       }
       const { width, height } = parent.getBoundingClientRect();
-      canvas.width = width;
-      canvas.height = height;
-      if (!playerRef.current) {
+      const isMobile = window.matchMedia('(max-width: 767px)').matches;
+      const nextMode: GameMode = isMobile ? 'mobile' : 'desktop';
+      const previousMode = modeRef.current;
+      const nextConfig = GAME_CONFIGS[nextMode];
+
+      modeRef.current = nextMode;
+      configRef.current = nextConfig;
+      canvas.width = nextConfig.baseWidth;
+      canvas.height = nextConfig.baseHeight;
+      const scale = Math.min(width / nextConfig.baseWidth, height / nextConfig.baseHeight);
+      canvas.style.transform = `translate(-50%, -50%) scale(${scale})`;
+      if (!playerRef.current || previousMode !== nextMode) {
         resetGame(canvas);
+        statusRef.current = 'READY';
+        setStatus('READY');
       } else {
         const groundY = getGroundY(canvas.height);
         playerRef.current.y = groundY - playerRef.current.height;
+        playerRef.current.x = configRef.current.playerX;
       }
     };
 
@@ -176,12 +193,15 @@ export default function GameCanvas() {
         obstacleTimerRef.current -= delta;
 
         if (coinTimerRef.current <= 0) {
-          coinsRef.current.push(createCoin(canvas.width, groundY));
-          coinTimerRef.current = randomRange(COIN_MIN_GAP, COIN_MAX_GAP);
+          coinsRef.current.push(createCoin(canvas.width, groundY, configRef.current));
+          coinTimerRef.current = randomRange(
+            configRef.current.coinMinGap,
+            configRef.current.coinMaxGap
+          );
         }
         if (obstacleTimerRef.current <= 0) {
           const lastObstacle = obstaclesRef.current[obstaclesRef.current.length - 1];
-          const minDistance = 180;
+          const minDistance = configRef.current.obstacleMinDistance;
           if (!lastObstacle || lastObstacle.x < canvas.width - minDistance) {
             const nextObstacle = createObstacle(
               canvas.width,
@@ -191,8 +211,14 @@ export default function GameCanvas() {
             obstaclesRef.current.push(nextObstacle);
             lastObstacleTypeRef.current = nextObstacle.type;
           }
-          const minGap = Math.max(0.9, OBSTACLE_MIN_GAP - speedRef.current * 0.02);
-          const maxGap = Math.max(1.4, OBSTACLE_MAX_GAP - speedRef.current * 0.02);
+          const minGap = Math.max(
+            configRef.current.obstacleMinGap - speedRef.current * 0.02,
+            configRef.current.obstacleMinGap * 0.8
+          );
+          const maxGap = Math.max(
+            configRef.current.obstacleMaxGap - speedRef.current * 0.02,
+            configRef.current.obstacleMaxGap * 0.7
+          );
           obstacleTimerRef.current = randomRange(minGap, maxGap);
         }
 
@@ -285,12 +311,20 @@ export default function GameCanvas() {
     };
   }, [highScore]);
 
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('button')) {
+      return;
+    }
+    handleJump();
+  };
+
   return (
     <div
       className="game-shell"
       role="button"
       tabIndex={0}
-      onPointerDown={handleJump}
+      onPointerDown={handlePointerDown}
       onKeyDown={(event) => {
         if (event.key === ' ') {
           event.preventDefault();
@@ -298,21 +332,38 @@ export default function GameCanvas() {
         }
       }}
     >
-      <div className="hud">
+      <div className="hud hud-top-left">
         <div className="hud-block">
           <span className="hud-label">Score</span>
           <span className="hud-value">{score}</span>
         </div>
-        <div className="hud-block">
+      </div>
+      <div className="hud hud-top-right">
+        <div className="hud-block hud-compact">
           <span className="hud-label">High</span>
           <span className="hud-value">{highScore}</span>
         </div>
-        <div className="hud-block">
+        <div className="hud-block hud-compact">
           <span className="hud-label">Speed</span>
           <span className="hud-value">{speedDisplay}</span>
         </div>
       </div>
-      <canvas ref={canvasRef} className="game-canvas" width={GAME_WIDTH} height={GAME_HEIGHT} />
+      <div className="hud hud-bottom-left">
+        <button type="button" className="hud-button">
+          Sound
+        </button>
+      </div>
+      <div className="hud hud-bottom-right">
+        <button type="button" className="hud-button">
+          Share
+        </button>
+      </div>
+      <canvas
+        ref={canvasRef}
+        className="game-canvas"
+        width={GAME_CONFIGS.desktop.baseWidth}
+        height={GAME_CONFIGS.desktop.baseHeight}
+      />
       {status === 'GAME_OVER' ? (
         <div className="overlay">
           <div className="overlay-panel">
