@@ -81,32 +81,38 @@ h1 {
   background: #0b0f24;
   padding: 16px;
   border: 2px solid #1e293b;
+  aspect-ratio: 16 / 9;
 }
 
 .game-shell {
   position: relative;
   border-radius: 14px;
   overflow: hidden;
-  height: min(68vh, 560px);
-  min-height: 380px;
+  width: 100%;
+  height: 100%;
   outline: none;
   border: 3px solid #111827;
   box-shadow: 0 0 0 4px #0f172a, 0 0 30px rgba(76, 201, 240, 0.25);
+  touch-action: manipulation;
+  user-select: none;
+  background: #05070f;
 }
 
 .game-canvas {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: top left;
   display: block;
 }
 
 .hud {
   position: absolute;
-  top: 16px;
-  left: 16px;
   display: flex;
   gap: 12px;
   z-index: 2;
+  padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 12px)
+    calc(env(safe-area-inset-bottom) + 8px) calc(env(safe-area-inset-left) + 12px);
 }
 
 .hud-block {
@@ -127,6 +133,52 @@ h1 {
 .hud-value {
   font-size: 16px;
   font-weight: 400;
+}
+
+.hud-top-left {
+  top: 0;
+  left: 0;
+}
+
+.hud-top-right {
+  top: 0;
+  right: 0;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.hud-bottom-left {
+  bottom: 0;
+  left: 0;
+}
+
+.hud-bottom-right {
+  bottom: 0;
+  right: 0;
+}
+
+.hud-compact {
+  padding: 8px 10px;
+}
+
+.hud-compact .hud-label {
+  font-size: 10px;
+}
+
+.hud-button {
+  border-radius: 999px;
+  border: 2px solid #1d4ed8;
+  background: rgba(15, 23, 42, 0.85);
+  color: #f8fafc;
+  padding: 10px 16px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.hud-button:hover {
+  background: rgba(30, 41, 59, 0.9);
 }
 
 .overlay {
@@ -182,4 +234,44 @@ h1 {
   text-align: center;
   color: #94a3b8;
   font-size: 0.9rem;
+}
+
+@media (max-width: 767px) {
+  body {
+    overflow: hidden;
+  }
+
+  .page {
+    max-width: none;
+    padding: 0;
+    min-height: 100svh;
+    gap: 0;
+  }
+
+  .hero,
+  .footer {
+    display: none;
+  }
+
+  .game-section {
+    width: 100vw;
+    height: 100svh;
+    aspect-ratio: 9 / 16;
+    padding: 0;
+    border-radius: 0;
+    border: none;
+  }
+
+  .game-shell {
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .game-section {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
 }
