@@ -1,14 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import {
-  COIN_MAX_GAP,
-  COIN_MIN_GAP,
-  GAME_HEIGHT,
-  GAME_WIDTH,
-  OBSTACLE_MAX_GAP,
-  OBSTACLE_MIN_GAP
-} from '@/lib/game/constants';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { getGameConfig, type GameMode } from '@/lib/game/config';
 import {
   checkCoinCollision,
   checkRectCollision,
@@ -39,8 +32,10 @@ export default function GameCanvas() {
   const speedRef = useRef<number>(resetSpeed());
   const scoreRef = useRef<number>(0);
   const statusRef = useRef<GameStatus>('READY');
-  const coinTimerRef = useRef<number>(randomRange(COIN_MIN_GAP, COIN_MAX_GAP));
-  const obstacleTimerRef = useRef<number>(randomRange(OBSTACLE_MIN_GAP, OBSTACLE_MAX_GAP));
+  const [mode, setMode] = useState<GameMode>('desktop');
+  const config = useMemo(() => getGameConfig(mode), [mode]);
+  const coinTimerRef = useRef<number>(randomRange(config.coinMinGap, config.coinMaxGap));
+  const obstacleTimerRef = useRef<number>(randomRange(config.obstacleMinGap, config.obstacleMaxGap));
   const hudTimerRef = useRef<number>(0);
   const lastObstacleTypeRef = useRef<Obstacle['type'] | null>(null);
   const backgroundOffsetRef = useRef<number>(0);
@@ -50,16 +45,17 @@ export default function GameCanvas() {
   const [highScore, setHighScore] = useState(0);
   const [speedDisplay, setSpeedDisplay] = useState<number>(Math.round(speedRef.current));
   const [status, setStatus] = useState<GameStatus>('READY');
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   const resetGame = (canvas: HTMLCanvasElement) => {
     const groundY = getGroundY(canvas.height);
-    playerRef.current = createPlayer(groundY);
+    playerRef.current = createPlayer(groundY, config);
     coinsRef.current = [];
     obstaclesRef.current = [];
     speedRef.current = resetSpeed();
     scoreRef.current = 0;
-    coinTimerRef.current = randomRange(COIN_MIN_GAP, COIN_MAX_GAP);
-    obstacleTimerRef.current = randomRange(OBSTACLE_MIN_GAP, OBSTACLE_MAX_GAP);
+    coinTimerRef.current = randomRange(config.coinMinGap, config.coinMaxGap);
+    obstacleTimerRef.current = randomRange(config.obstacleMinGap, config.obstacleMaxGap);
     lastObstacleTypeRef.current = null;
     backgroundOffsetRef.current = 0;
     animationTimeRef.current = 0;
@@ -109,12 +105,40 @@ export default function GameCanvas() {
     if (!player) {
       return;
     }
-    jumpPlayer(player);
+    jumpPlayer(player, config);
   };
 
   useEffect(() => {
     setHighScore(readHighScore());
   }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const updateMode = () => {
+      setMode(media.matches ? 'mobile' : 'desktop');
+    };
+    updateMode();
+    if (media.addEventListener) {
+      media.addEventListener('change', updateMode);
+    } else {
+      media.addListener(updateMode);
+    }
+    return () => {
+      if (media.addEventListener) {
+        media.removeEventListener('change', updateMode);
+      } else {
+        media.removeListener(updateMode);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+    resetGame(canvas);
+  }, [config]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -131,9 +155,12 @@ export default function GameCanvas() {
       if (!parent) {
         return;
       }
+      canvas.width = config.baseWidth;
+      canvas.height = config.baseHeight;
       const { width, height } = parent.getBoundingClientRect();
-      canvas.width = width;
-      canvas.height = height;
+      const scale = Math.min(width / config.baseWidth, height / config.baseHeight);
+      canvas.style.width = `${config.baseWidth * scale}px`;
+      canvas.style.height = `${config.baseHeight * scale}px`;
       if (!playerRef.current) {
         resetGame(canvas);
       } else {
@@ -176,12 +203,12 @@ export default function GameCanvas() {
         obstacleTimerRef.current -= delta;
 
         if (coinTimerRef.current <= 0) {
-          coinsRef.current.push(createCoin(canvas.width, groundY));
-          coinTimerRef.current = randomRange(COIN_MIN_GAP, COIN_MAX_GAP);
+          coinsRef.current.push(createCoin(canvas.width, groundY, config));
+          coinTimerRef.current = randomRange(config.coinMinGap, config.coinMaxGap);
         }
         if (obstacleTimerRef.current <= 0) {
           const lastObstacle = obstaclesRef.current[obstaclesRef.current.length - 1];
-          const minDistance = 180;
+          const minDistance = config.obstacleMinDistance;
           if (!lastObstacle || lastObstacle.x < canvas.width - minDistance) {
             const nextObstacle = createObstacle(
               canvas.width,
@@ -191,8 +218,8 @@ export default function GameCanvas() {
             obstaclesRef.current.push(nextObstacle);
             lastObstacleTypeRef.current = nextObstacle.type;
           }
-          const minGap = Math.max(0.9, OBSTACLE_MIN_GAP - speedRef.current * 0.02);
-          const maxGap = Math.max(1.4, OBSTACLE_MAX_GAP - speedRef.current * 0.02);
+          const minGap = Math.max(0.9, config.obstacleMinGap - speedRef.current * 0.02);
+          const maxGap = Math.max(1.4, config.obstacleMaxGap - speedRef.current * 0.02);
           obstacleTimerRef.current = randomRange(minGap, maxGap);
         }
 
@@ -254,7 +281,8 @@ export default function GameCanvas() {
         });
 
         if (statusRef.current === 'READY') {
-          drawOverlay('Press Space to Start', canvas, context);
+          const readyMessage = mode === 'mobile' ? 'Tap to Start' : 'Press Space to Start';
+          drawOverlay(readyMessage, canvas, context);
         }
         if (statusRef.current === 'GAME_OVER') {
           drawOverlay('Game Over', canvas, context);
@@ -283,11 +311,12 @@ export default function GameCanvas() {
         cancelAnimationFrame(frameRef.current);
       }
     };
-  }, [highScore]);
+  }, [highScore, config, mode]);
 
   return (
     <div
       className="game-shell"
+      data-mode={mode}
       role="button"
       tabIndex={0}
       onPointerDown={handleJump}
@@ -299,22 +328,65 @@ export default function GameCanvas() {
       }}
     >
       <div className="hud">
-        <div className="hud-block">
-          <span className="hud-label">Score</span>
-          <span className="hud-value">{score}</span>
+        <div className="hud-row hud-row-top">
+          <div className="hud-block">
+            <span className="hud-label">Score</span>
+            <span className="hud-value">{score}</span>
+          </div>
+          <div className="hud-stack">
+            <div className="hud-block">
+              <span className="hud-label">High</span>
+              <span className="hud-value">{highScore}</span>
+            </div>
+            <div className="hud-block">
+              <span className="hud-label">Speed</span>
+              <span className="hud-value">{speedDisplay}</span>
+            </div>
+          </div>
         </div>
-        <div className="hud-block">
-          <span className="hud-label">High</span>
-          <span className="hud-value">{highScore}</span>
-        </div>
-        <div className="hud-block">
-          <span className="hud-label">Speed</span>
-          <span className="hud-value">{speedDisplay}</span>
+        <div className="hud-row hud-row-bottom">
+          <button
+            type="button"
+            className="hud-action"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              setSoundEnabled((prev) => !prev);
+            }}
+          >
+            Sound: {soundEnabled ? 'On' : 'Off'}
+          </button>
+          <button
+            type="button"
+            className="hud-action"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (navigator.share) {
+                void navigator
+                  .share({
+                    title: 'Dubai Cookie Dash',
+                    text: 'Jump into Dubai Cookie Dash!',
+                    url: window.location.href
+                  })
+                  .catch(() => undefined);
+              } else {
+                window.navigator.clipboard?.writeText(window.location.href);
+              }
+            }}
+          >
+            Share
+          </button>
         </div>
       </div>
-      <canvas ref={canvasRef} className="game-canvas" width={GAME_WIDTH} height={GAME_HEIGHT} />
+      <canvas
+        ref={canvasRef}
+        className="game-canvas"
+        width={config.baseWidth}
+        height={config.baseHeight}
+      />
       {status === 'GAME_OVER' ? (
-        <div className="overlay">
+        <div className="overlay" onPointerDown={(event) => event.stopPropagation()}>
           <div className="overlay-panel">
             <h2>Game Over</h2>
             <p>Score: {score}</p>
@@ -327,10 +399,10 @@ export default function GameCanvas() {
         </div>
       ) : null}
       {status === 'READY' ? (
-        <div className="overlay">
+        <div className="overlay" onPointerDown={(event) => event.stopPropagation()}>
           <div className="overlay-panel">
             <h2>Dubai Cookie Dash</h2>
-            <p>Tap or press Space to jump.</p>
+            <p>{mode === 'mobile' ? 'Tap anywhere to jump.' : 'Tap or press Space to jump.'}</p>
             <button type="button" onClick={startGame}>
               Start
             </button>
