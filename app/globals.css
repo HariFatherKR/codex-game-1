@@ -151,6 +151,7 @@ body {
   justify-content: center;
   background: rgba(8, 12, 24, 0.6);
   z-index: 3;
+  padding: 20px;
 }
 
 .overlay-panel {
@@ -159,6 +160,7 @@ body {
   padding: 24px 32px;
   border-radius: 12px;
   border: 2px solid #1d4ed8;
+  max-width: min(90vw, 360px);
 }
 
 .overlay-panel h2 {
@@ -170,18 +172,34 @@ body {
   color: #c7d2fe;
 }
 
-.overlay-panel button {
+.overlay-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin-top: 16px;
-  padding: 12px 20px;
-  border-radius: 8px;
-  border: 2px solid #f72585;
-  background: #1f2937;
-  color: white;
-  font-weight: 400;
-  cursor: pointer;
 }
 
-.overlay-panel button:hover {
+.overlay-button {
+  min-height: 44px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background: #1f2937;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+}
+
+.overlay-button--primary {
+  border-color: #f72585;
+}
+
+.overlay-button--secondary {
+  border-color: #38bdf8;
+}
+
+.overlay-button:hover {
   background: #1f1b3a;
 }
 
@@ -190,4 +208,44 @@ body {
   margin-top: 12px;
   font-size: 12px;
   color: #94a3b8;
+}
+
+.friend-score-banner {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 2px solid #38bdf8;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  z-index: 4;
+}
+
+.friend-score-close {
+  background: transparent;
+  border: none;
+  color: #f8fafc;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.toast {
+  position: absolute;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 999px;
+  border: 2px solid #22d3ee;
+  font-size: 12px;
+  z-index: 4;
 }
