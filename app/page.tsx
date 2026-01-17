@@ -4,9 +4,9 @@ export default function HomePage() {
   return (
     <main className="page">
       <header className="hero">
-        <div>
+        <div className="hero-text">
           <p className="eyebrow">8-bit Arcade Runner</p>
-          <h1>Dubai Cookie Dash</h1>
+          <h1 className="hero-title">Dubai Cookie Dash</h1>
           <p className="subtitle">
             픽셀 네온 아케이드에서 점프 타이밍을 맞추고 두바이 쫀득쿠키 코인을
             모아보세요.
@@ -20,12 +20,13 @@ export default function HomePage() {
           </ul>
         </div>
       </header>
-      <section className="game-section">
-        <GameCanvas />
+      <section className="game-stage">
+        <div className="letterbox">
+          <div className="game-viewport">
+            <GameCanvas />
+          </div>
+        </div>
       </section>
-      <footer className="footer">
-        <p>Next.js App Router + Vercel ready.</p>
-      </footer>
     </main>
   );
 }
