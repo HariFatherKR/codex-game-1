@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createGameConfig } from '@/lib/game/constants';
 import {
   checkCoinCollision,
@@ -42,9 +43,15 @@ export default function GameCanvas() {
 
   const [isMobile, setIsMobile] = useState(false);
   const [score, setScore] = useState(0);
+  const [finalScore, setFinalScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [speedDisplay, setSpeedDisplay] = useState<number>(0);
   const [status, setStatus] = useState<GameStatus>('READY');
+  const [friendScore, setFriendScore] = useState<number | null>(null);
+  const [showFriendScore, setShowFriendScore] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const searchParams = useSearchParams();
 
   const config = useMemo(() => createGameConfig(isMobile), [isMobile]);
 
@@ -85,6 +92,7 @@ export default function GameCanvas() {
   const triggerGameOver = () => {
     statusRef.current = 'GAME_OVER';
     setStatus('GAME_OVER');
+    setFinalScore(scoreRef.current);
     const nextHigh = Math.max(scoreRef.current, highScore);
     if (nextHigh !== highScore) {
       setHighScore(nextHigh);
@@ -112,6 +120,58 @@ export default function GameCanvas() {
   useEffect(() => {
     setHighScore(readHighScore());
   }, []);
+
+  useEffect(() => {
+    const sharedScore = searchParams.get('s');
+    if (!sharedScore) {
+      setFriendScore(null);
+      setShowFriendScore(false);
+      return;
+    }
+    const parsedScore = Number(sharedScore);
+    if (!Number.isInteger(parsedScore) || parsedScore < 0 || parsedScore > 999999) {
+      setFriendScore(null);
+      setShowFriendScore(false);
+      return;
+    }
+    setFriendScore(parsedScore);
+    setShowFriendScore(true);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return undefined;
+    }
+    const timer = window.setTimeout(() => {
+      setToastMessage(null);
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [toastMessage]);
+
+  const handleShare = async () => {
+    const shareUrl = new URL(window.location.href);
+    shareUrl.searchParams.set('s', String(finalScore));
+    const title = 'Dubai Cookie Dash';
+    const text = `Dubai Cookie Dash에서 ${finalScore}점! 너 이길 수 있어?`;
+    const url = shareUrl.toString();
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        return;
+      } catch (error) {
+        console.warn('Share canceled or failed', error);
+      }
+    }
+
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      setToastMessage('복사 완료');
+      return;
+    }
+
+    setToastMessage('공유 링크를 복사할 수 없습니다');
+  };
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 767px)');
@@ -317,6 +377,22 @@ export default function GameCanvas() {
       }}
     >
       <div className="hud-layer">
+        {showFriendScore && friendScore !== null ? (
+          <div className="friend-score-banner" role="status">
+            <span>친구 점수: {friendScore} — 이겨보세요!</span>
+            <button
+              type="button"
+              aria-label="친구 점수 배너 닫기"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                setShowFriendScore(false);
+              }}
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
         <div className="hud-row hud-top-left">
           <div className="hud-block">
             <span className="hud-label">Score</span>
@@ -343,16 +419,6 @@ export default function GameCanvas() {
             Sound
           </button>
         </div>
-        <div className="hud-row hud-bottom-right">
-          <button
-            type="button"
-            className="hud-button"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => event.stopPropagation()}
-          >
-            Share
-          </button>
-        </div>
       </div>
       <canvas
         ref={canvasRef}
@@ -366,16 +432,30 @@ export default function GameCanvas() {
             <h2>Game Over</h2>
             <p>Score: {score}</p>
             <p>High Score: {highScore}</p>
-            <button
-              type="button"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                restartGame();
-              }}
-            >
-              Restart
-            </button>
+            <div className="overlay-actions">
+              <button
+                type="button"
+                className="overlay-button overlay-button--primary"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  restartGame();
+                }}
+              >
+                Restart
+              </button>
+              <button
+                type="button"
+                className="overlay-button overlay-button--secondary"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handleShare();
+                }}
+              >
+                Share
+              </button>
+            </div>
             <span className="hint">Press Enter or tap to restart</span>
           </div>
         </div>
@@ -398,6 +478,7 @@ export default function GameCanvas() {
           </div>
         </div>
       ) : null}
+      {toastMessage ? <div className="toast">{toastMessage}</div> : null}
     </div>
   );
 }
