@@ -50,6 +50,7 @@ export default function GameCanvas() {
   const [highScore, setHighScore] = useState(0);
   const [speedDisplay, setSpeedDisplay] = useState<number>(Math.round(speedRef.current));
   const [status, setStatus] = useState<GameStatus>('READY');
+  const [isMuted, setIsMuted] = useState(false);
 
   const resetGame = (canvas: HTMLCanvasElement) => {
     const groundY = getGroundY(canvas.height);
@@ -110,6 +111,29 @@ export default function GameCanvas() {
       return;
     }
     jumpPlayer(player);
+  };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    const text = '내 점수 이겼으면 인증해 😎 Dubai Cookie Dash';
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Dubai Cookie Dash',
+          text,
+          url
+        });
+        return;
+      } catch {
+        // Fallback to copy flow when share is canceled or fails.
+      }
+    }
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      window.alert('링크가 복사되었어요!');
+      return;
+    }
+    window.prompt('링크를 복사하세요:', `${text} ${url}`);
   };
 
   useEffect(() => {
@@ -254,7 +278,7 @@ export default function GameCanvas() {
         });
 
         if (statusRef.current === 'READY') {
-          drawOverlay('Press Space to Start', canvas, context);
+          drawOverlay('Tap to Jump', canvas, context);
         }
         if (statusRef.current === 'GAME_OVER') {
           drawOverlay('Game Over', canvas, context);
@@ -290,7 +314,12 @@ export default function GameCanvas() {
       className="game-shell"
       role="button"
       tabIndex={0}
-      onPointerDown={handleJump}
+      onPointerDown={(event) => {
+        if (event.target instanceof Element && event.target.closest('button')) {
+          return;
+        }
+        handleJump();
+      }}
       onKeyDown={(event) => {
         if (event.key === ' ') {
           event.preventDefault();
@@ -312,6 +341,19 @@ export default function GameCanvas() {
           <span className="hud-value">{speedDisplay}</span>
         </div>
       </div>
+      <div className="game-actions">
+        <button type="button" className="chip-button" onClick={handleShare}>
+          Share
+        </button>
+        <button
+          type="button"
+          className="chip-button"
+          aria-pressed={isMuted}
+          onClick={() => setIsMuted((prev) => !prev)}
+        >
+          {isMuted ? 'Sound Off' : 'Sound On'}
+        </button>
+      </div>
       <canvas ref={canvasRef} className="game-canvas" width={GAME_WIDTH} height={GAME_HEIGHT} />
       {status === 'GAME_OVER' ? (
         <div className="overlay">
@@ -330,7 +372,7 @@ export default function GameCanvas() {
         <div className="overlay">
           <div className="overlay-panel">
             <h2>Dubai Cookie Dash</h2>
-            <p>Tap or press Space to jump.</p>
+            <p>Tap to Jump</p>
             <button type="button" onClick={startGame}>
               Start
             </button>
