@@ -1,37 +1,87 @@
-export const GAME_WIDTH = 960;
-export const GAME_HEIGHT = 540;
-export const GROUND_HEIGHT = 80;
+import type { GameConfig } from './types';
 
-export const PLAYER_WIDTH = 48;
-export const PLAYER_HEIGHT = 48;
-export const PLAYER_X = 140;
-
-export const GRAVITY = 2200;
-export const JUMP_FORCE = 760;
-
-export const BASE_SPEED = 6;
-export const MAX_SPEED = 20;
-export const SPEED_RAMP = 0.35;
-
-export const COIN_SIZE = 24;
-export const COIN_SCORE = 10;
-
-export const OBSTACLE_MIN_GAP = 1.2;
-export const OBSTACLE_MAX_GAP = 2.4;
-export const COIN_MIN_GAP = 1.0;
-export const COIN_MAX_GAP = 2.0;
-
-export const BIKE_OBSTACLE = {
-  width: 32,
-  height: 24
+const DESKTOP_BASE = {
+  baseWidth: 960,
+  baseHeight: 540
 };
 
-export const CAR_OBSTACLE = {
-  width: 48,
-  height: 24
+const MOBILE_BASE = {
+  baseWidth: 360,
+  baseHeight: 640
 };
 
-export const SCOOTER_OBSTACLE = {
-  width: 28,
-  height: 20
+const BASE_CONFIG: GameConfig = {
+  ...DESKTOP_BASE,
+  groundHeight: 80,
+  player: {
+    width: 48,
+    height: 48,
+    x: 180
+  },
+  physics: {
+    gravity: 2200,
+    jumpForce: 760
+  },
+  speed: {
+    base: 6,
+    max: 20,
+    ramp: 0.35
+  },
+  coin: {
+    size: 24,
+    score: 10,
+    liftOptions: [60, 110],
+    minGap: 1.0,
+    maxGap: 2.0
+  },
+  obstacle: {
+    minGap: 1.2,
+    maxGap: 2.4,
+    minDistance: 180,
+    sizes: {
+      BIKE: {
+        width: 32,
+        height: 24
+      },
+      CAR: {
+        width: 48,
+        height: 24
+      },
+      SCOOTER: {
+        width: 28,
+        height: 20
+      }
+    }
+  }
+};
+
+export const createGameConfig = (isMobile: boolean): GameConfig => {
+  if (!isMobile) {
+    return BASE_CONFIG;
+  }
+
+  return {
+    ...BASE_CONFIG,
+    ...MOBILE_BASE,
+    player: {
+      ...BASE_CONFIG.player,
+      x: 110
+    },
+    physics: {
+      ...BASE_CONFIG.physics,
+      jumpForce: 840
+    },
+    coin: {
+      ...BASE_CONFIG.coin,
+      liftOptions: [70, 140, 210],
+      minGap: 1.1,
+      maxGap: 2.2
+    },
+    obstacle: {
+      ...BASE_CONFIG.obstacle,
+      minGap: 1.3,
+      maxGap: 2.6,
+      minDistance: 220
+    }
+  };
 };
