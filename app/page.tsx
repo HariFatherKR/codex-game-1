@@ -12,16 +12,25 @@ export default function HomePage() {
             모아보세요.
           </p>
         </div>
-        <div className="hero-card">
-          <p>Controls</p>
-          <ul>
-            <li>Space / Tap: Jump</li>
-            <li>Enter: Start or Restart</li>
-          </ul>
-        </div>
       </header>
       <section className="game-section">
-        <GameCanvas />
+        <div className="game-layout">
+          <div className="game-stage">
+            <div className="letterbox">
+              <div className="game-viewport">
+                <GameCanvas />
+              </div>
+            </div>
+          </div>
+          <aside className="controls-panel">
+            <p>Controls</p>
+            <ul>
+              <li>Space / Tap: Jump</li>
+              <li>Enter: Start or Restart</li>
+              <li>Tap anywhere to jump.</li>
+            </ul>
+          </aside>
+        </div>
       </section>
       <footer className="footer">
         <p>Next.js App Router + Vercel ready.</p>

@@ -12,16 +12,17 @@
 body {
   margin: 0;
   background: radial-gradient(circle at top, #111827 0%, #05070f 65%);
-  min-height: 100vh;
+  min-height: 100svh;
 }
 
 .page {
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 40px 24px 64px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 20px;
+  min-height: 100svh;
 }
 
 .hero {
@@ -48,7 +49,7 @@ body {
 
 h1 {
   margin: 8px 0;
-  font-size: clamp(2rem, 3vw, 3rem);
+  font-size: clamp(1.5rem, 3vw, 2.75rem);
 }
 
 .subtitle {
@@ -81,17 +82,69 @@ h1 {
   background: #0b0f24;
   padding: 16px;
   border: 2px solid #1e293b;
+  flex: 1;
+  display: flex;
+}
+
+.game-layout {
+  display: flex;
+  flex: 1;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.game-stage {
+  flex: 1;
+  display: flex;
+}
+
+.letterbox {
+  flex: 1;
+  border-radius: 18px;
+  background: radial-gradient(circle at top, rgba(34, 197, 246, 0.16), transparent 55%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(2, 6, 23, 0.95));
+  border: 2px solid #111827;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.letterbox::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(2, 6, 23, 0.25),
+    rgba(2, 6, 23, 0.25) 1px,
+    rgba(2, 6, 23, 0) 3px,
+    rgba(2, 6, 23, 0) 6px
+  );
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.4;
+}
+
+.game-viewport {
+  width: min(100%, calc(100vh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  position: relative;
+  z-index: 1;
 }
 
 .game-shell {
   position: relative;
   border-radius: 14px;
   overflow: hidden;
-  height: min(68vh, 560px);
-  min-height: 380px;
+  height: 100%;
+  width: 100%;
   outline: none;
   border: 3px solid #111827;
   box-shadow: 0 0 0 4px #0f172a, 0 0 30px rgba(76, 201, 240, 0.25);
+  touch-action: manipulation;
+  cursor: pointer;
 }
 
 .game-canvas {
@@ -102,16 +155,17 @@ h1 {
 
 .hud {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
   display: flex;
-  gap: 12px;
+  gap: 8px;
   z-index: 2;
+  flex-wrap: wrap;
 }
 
 .hud-block {
   background: rgba(10, 14, 32, 0.8);
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-radius: 8px;
   border: 2px solid #1e40af;
 }
@@ -127,6 +181,34 @@ h1 {
 .hud-value {
   font-size: 16px;
   font-weight: 400;
+}
+
+.game-actions {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.chip-button {
+  background: rgba(15, 23, 42, 0.85);
+  color: #e2e8f0;
+  border: 2px solid #38bdf8;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.chip-button[aria-pressed='true'] {
+  border-color: #f472b6;
+  color: #fbcfe8;
 }
 
 .overlay {
@@ -182,4 +264,70 @@ h1 {
   text-align: center;
   color: #94a3b8;
   font-size: 0.9rem;
+}
+
+.controls-panel {
+  background: #0f172a;
+  border-radius: 16px;
+  padding: 20px;
+  border: 2px solid #1e293b;
+  min-width: 220px;
+  max-width: 260px;
+  align-self: stretch;
+}
+
+.controls-panel p {
+  margin: 0 0 12px 0;
+  color: #7dd3fc;
+}
+
+.controls-panel ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #e2e8f0;
+}
+
+@media (max-width: 767px) {
+  .page {
+    padding: 16px;
+  }
+
+  .hero {
+    gap: 8px;
+  }
+
+  .controls-panel {
+    display: none;
+  }
+
+  .subtitle {
+    display: none;
+  }
+
+  .footer {
+    display: none;
+  }
+
+  .game-section {
+    padding: 12px;
+  }
+
+  .game-layout {
+    gap: 0;
+  }
+
+  .game-viewport {
+    width: min(100%, calc(100svh * 16 / 9));
+  }
+
+  .chip-button {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
+}
+
+@media (min-width: 768px) {
+  .game-layout {
+    align-items: center;
+  }
 }

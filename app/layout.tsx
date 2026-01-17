@@ -9,8 +9,8 @@ const pixelFont = Press_Start_2P({
 });
 
 export const metadata: Metadata = {
-  title: 'Coin Runner',
-  description: 'A fast-paced infinite runner built with Next.js.'
+  title: 'Dubai Cookie Dash',
+  description: 'A neon pixel runner built for mobile-first play and sharing.'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
